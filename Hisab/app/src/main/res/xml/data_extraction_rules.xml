@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="database" path="hisab.db" />
+        <include domain="sharedpref" path="." />
+        <exclude domain="sharedpref" path="secret_shared_prefs.xml" />
+        <include domain="file" path="profile_pictures/" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="hisab.db" />
+        <include domain="sharedpref" path="." />
+        <exclude domain="sharedpref" path="secret_shared_prefs.xml" />
+        <include domain="file" path="profile_pictures/" />
+    </device-transfer>
+</data-extraction-rules>

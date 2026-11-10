@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="hisab_navy">#182838</color>
+    <color name="hisab_primary">#1E88E5</color>
+    <color name="hisab_primary_dark">#1565C0</color>
+    <color name="hisab_primary_light">#90CAF9</color>
+    <color name="hisab_accent">#FF9800</color>
+    <color name="hisab_background">#FFFFFF</color>
+    <color name="hisab_surface">#F5F5F5</color>
+    <color name="hisab_text_primary">#212121</color>
+    <color name="hisab_text_secondary">#757575</color>
+    <color name="hisab_error">#D32F2F</color>
+    <color name="hisab_success">#388E3C</color>
+    <color name="hisab_warning">#F57C00</color>
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="splash_background_light">#FAFAFA</color>
+    <color name="splash_background_dark">#121212</color>
+</resources>

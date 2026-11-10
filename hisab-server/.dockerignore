@@ -1,0 +1,10 @@
+.git/
+.gradle/
+.idea/
+build/
+uploads/
+.env
+.env.*
+*.log
+*.pem
+*.key

@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+services:
+  - type: web
+    name: hisab-api
+    runtime: docker
+    plan: 0.5c-512mb
+    numInstances: 1
+    dockerfilePath: ./hisab-server/Dockerfile
+    dockerContext: ./hisab-server
+    autoDeployTrigger: 'off'
+    healthCheckPath: /healthz
+    disk:
+      name: hisab-profile-images
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: HISAB_ENV
+        value: production
+      - key: HOST
+        value: '0.0.0.0'
+      - key: PORT
+        value: '10000'
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DATABASE
+        value: hisab_db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: UPLOAD_DIR
+        value: /var/data/uploads

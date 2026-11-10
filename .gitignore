@@ -1,0 +1,39 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+local.properties
+.firebaserc
+google-services.json
+service-account*.json
+*firebase-adminsdk*.json
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+
+# Build tools and workspace metadata
+.gradle/
+.kotlin/
+build/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+__pycache__/
+
+# Runtime data and audit fixtures
+uploads/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite*
+*.log
+*.apk
+*.aab
+/.hisab-qa/
+/test.jpg
+/pad_icons.ps1
+/pad_profiles.ps1
