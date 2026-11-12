@@ -19,7 +19,7 @@ fun apiOrigin(value: String, setting: String, httpsOnly: Boolean): String {
 
 val debugOrigin = providers.gradleProperty("HISAB_DEBUG_API_URL")
     .orElse(providers.environmentVariable("HISAB_DEBUG_API_URL"))
-    .orElse("http://127.0.0.1:8081/")
+    .orElse("https://hisab-onlo.onrender.com/")
     .map { apiOrigin(it, "HISAB_DEBUG_API_URL", httpsOnly = false) }
 val releaseOrigin = providers.gradleProperty("HISAB_RELEASE_API_URL")
     .orElse(providers.environmentVariable("HISAB_RELEASE_API_URL"))
