@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.math.RoundingMode
 import java.util.UUID
 import javax.inject.Inject
 
@@ -139,10 +140,10 @@ class GroupDetailViewModel @Inject constructor(
             val receives = pairs.filterValues { it.signum() < 0 }
             MemberBalanceUI(
                 user = user,
-                totalDebt = debts.values.sumOf { it }.toDouble(),
-                totalReceive = receives.values.sumOf { -it }.toDouble(),
-                debtBreakdown = debts.map { (id, amount) -> DebtDetail(id, names[id] ?: "Unknown", amount.toDouble()) },
-                receiveBreakdown = receives.map { (id, amount) -> DebtDetail(id, names[id] ?: "Unknown", -amount.toDouble()) }
+                totalDebt = debts.values.sumOf { it }.setScale(3, RoundingMode.HALF_UP).toDouble(),
+                totalReceive = receives.values.sumOf { -it }.setScale(3, RoundingMode.HALF_UP).toDouble(),
+                debtBreakdown = debts.map { (id, amount) -> DebtDetail(id, names[id] ?: "Unknown", amount.setScale(3, RoundingMode.HALF_UP).toDouble()) },
+                receiveBreakdown = receives.map { (id, amount) -> DebtDetail(id, names[id] ?: "Unknown", -amount.setScale(3, RoundingMode.HALF_UP).toDouble()) }
             )
         }
     }
@@ -178,24 +179,22 @@ class GroupDetailViewModel @Inject constructor(
         val creditorId = _uiState.value.currentUserId
         val members = _uiState.value.group?.members ?: return
         if (creditorId.isBlank() || members.size <= 1) return
-
-        val otherMembers = members.filter { it != creditorId }
-        if (otherMembers.isEmpty()) return
         if (!validateAmount(amount)) return
-        val amounts = LedgerAmounts.split(amount, otherMembers.size)
-        if (amounts.any { it == 0.0 }) {
+
+        val splitShares = LedgerAmounts.splitExpense(amount, creditorId, members)
+        if (splitShares == null) {
             _uiState.update { it.copy(requestError = "The amount is too small to split among all members.") }
             return
         }
         
         updateLedger {
-            val entries = otherMembers.zip(amounts).map { (debtorId, splitAmount) ->
+            val entries = splitShares.map { share ->
                 HisabEntry(
                     id = UUID.randomUUID().toString(),
                     groupId = groupId,
-                    debtorId = debtorId,
+                    debtorId = share.debtorId,
                     creditorId = creditorId,
-                    amount = splitAmount,
+                    amount = share.amount,
                     description = description,
                     timestamp = System.currentTimeMillis()
                 )

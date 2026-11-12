@@ -32,7 +32,7 @@ fun HisabEntryCard(entry: HisabEntry) {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Rs. %.2f".format(entry.amount),
+                text = "PKR %.3f".format(entry.amount),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary

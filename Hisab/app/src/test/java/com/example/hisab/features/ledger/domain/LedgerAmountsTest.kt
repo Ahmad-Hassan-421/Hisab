@@ -3,6 +3,7 @@ package com.example.hisab.features.ledger.domain
 import com.example.hisab.data.db.HisabEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.math.BigDecimal
@@ -55,6 +56,65 @@ class LedgerAmountsTest {
 
         assertEquals(BigDecimal("4.000"), balances.getValue("b"))
         assertEquals(BigDecimal("-4.000"), balances.getValue("c"))
+    }
+
+    @Test
+    fun splitExpenseDividesEquallyAmongAllMembersIncludingPayer() {
+        val members = listOf("alice", "bob", "charlie")
+        val shares = LedgerAmounts.splitExpense(300.0, "alice", members)
+
+        assertEquals(
+            listOf(
+                LedgerAmounts.SplitShare("bob", 100.0),
+                LedgerAmounts.SplitShare("charlie", 100.0)
+            ),
+            shares
+        )
+
+        val entries = shares!!.map { share ->
+            entry(share.debtorId, "alice", share.amount)
+        }
+        val balances = LedgerAmounts.netByMember(entries)
+
+        assertEquals(BigDecimal("-100.000"), balances.getValue("alice").getValue("bob"))
+        assertEquals(BigDecimal("-100.000"), balances.getValue("alice").getValue("charlie"))
+        assertEquals(BigDecimal("100.000"), balances.getValue("bob").getValue("alice"))
+        assertEquals(BigDecimal("100.000"), balances.getValue("charlie").getValue("alice"))
+    }
+
+    @Test
+    fun splitExpenseInTwoPersonGroupSplitsFiftyFifty() {
+        val members = listOf("alice", "bob")
+        val shares = LedgerAmounts.splitExpense(100.0, "alice", members)
+
+        assertEquals(
+            listOf(LedgerAmounts.SplitShare("bob", 50.0)),
+            shares
+        )
+    }
+
+    @Test
+    fun splitExpensePreservesRemainderAcrossAllMembers() {
+        val members = listOf("alice", "bob", "charlie")
+        val shares = LedgerAmounts.splitExpense(1.0, "alice", members)
+
+        assertEquals(
+            listOf(
+                LedgerAmounts.SplitShare("bob", 0.333),
+                LedgerAmounts.SplitShare("charlie", 0.333)
+            ),
+            shares
+        )
+
+        val payerShare = BigDecimal("1.000") - shares!!.sumOf { BigDecimal.valueOf(it.amount) }
+        assertEquals(BigDecimal("0.334"), payerShare)
+    }
+
+    @Test
+    fun splitExpenseReturnsNullWhenAmountCannotBeSplitWithoutZeroShare() {
+        val members = listOf("alice", "bob", "charlie")
+        val shares = LedgerAmounts.splitExpense(0.002, "alice", members)
+        assertNull(shares)
     }
 
     private fun entry(debtor: String, creditor: String, amount: Double) =
