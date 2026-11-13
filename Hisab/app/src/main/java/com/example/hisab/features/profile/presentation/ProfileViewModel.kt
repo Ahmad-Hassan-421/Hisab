@@ -29,7 +29,7 @@ data class ProfileUiState(
     val uniqueId: String = "",
     val profilePicUrl: String = "",
     val isDarkMode: Boolean = false,
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val isUploading: Boolean = false,
     val loadFailure: AppFailure? = null,

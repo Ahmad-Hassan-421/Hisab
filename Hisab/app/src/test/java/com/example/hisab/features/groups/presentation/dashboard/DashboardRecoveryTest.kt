@@ -26,6 +26,40 @@ import java.net.ConnectException
 @OptIn(ExperimentalCoroutinesApi::class)
 class DashboardRecoveryTest {
     @Test
+    fun switchingAccountsCancelsThePreviousLoadAndClearsItsContent() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = TestGroups()
+        val session = SessionManager()
+        val viewModel = DashboardViewModel(repository, session, FailureReporter({ true }, {}))
+        try {
+            session.setSession("first", "user")
+            runCurrent()
+            assertEquals("existing", viewModel.uiState.value.groups.single().id)
+
+            val oldResponse = CompletableDeferred<List<HisabGroup>>()
+            repository.next = oldResponse
+            viewModel.refreshGroups()
+            runCurrent()
+            repository.next = CompletableDeferred()
+            session.setSession("second", "user")
+            runCurrent()
+            assertTrue(viewModel.uiState.value.isLoading)
+            assertTrue(viewModel.uiState.value.groups.isEmpty())
+
+            oldResponse.complete(listOf(HisabGroup(id = "old response")))
+            runCurrent()
+            assertTrue(viewModel.uiState.value.groups.isEmpty())
+            repository.next.complete(listOf(HisabGroup(id = "new account")))
+            runCurrent()
+            assertFalse(viewModel.uiState.value.isLoading)
+            assertEquals("new account", viewModel.uiState.value.groups.single().id)
+        } finally {
+            viewModel.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun retainsDataAfterOfflineRefreshAndCoalescesRetries() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = TestGroups()

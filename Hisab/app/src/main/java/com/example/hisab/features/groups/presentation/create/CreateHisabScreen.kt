@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import com.example.hisab.ui.components.ActionLabel
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -111,11 +111,7 @@ fun CreateHisabScreen(
                     .height(50.dp),
                 enabled = !uiState.isLoading
             ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary)
-                } else {
-                    Text("Create Hisab", fontSize = 16.sp)
-                }
+                ActionLabel("Create Hisab", "Creating Hisab…", uiState.isLoading)
             }
         }
     }

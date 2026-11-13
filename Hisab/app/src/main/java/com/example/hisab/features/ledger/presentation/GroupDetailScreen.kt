@@ -1,6 +1,8 @@
 package com.example.hisab.features.ledger.presentation
 
 import com.example.hisab.ui.components.LoadFailure
+import com.example.hisab.ui.components.ActionLabel
+import com.example.hisab.ui.components.ListSkeleton
 import com.example.hisab.ui.components.RefreshFailure
 import androidx.compose.ui.Alignment
 
@@ -106,7 +108,7 @@ fun GroupDetailScreen(
             },
             confirmButton = {
                 TextButton(onClick = { viewModel.sendInvite(inviteUniqueId) }, enabled = !uiState.isSendingRequest) {
-                    Text("Send Invite")
+                    ActionLabel("Send Invite", "Sending…", uiState.isSendingRequest)
                 }
             },
             dismissButton = {
@@ -189,21 +191,26 @@ fun GroupDetailScreen(
 
     if (showLeaveDialog) {
         AlertDialog(
-            onDismissRequest = { showLeaveDialog = false },
+            onDismissRequest = { if (!uiState.isLeaving) showLeaveDialog = false },
             title = { Text("Leave Group") },
-            text = { Text("Are you sure you want to leave this Hisab group? Your previous records will still be visible to others.") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Are you sure you want to leave this Hisab group? Your previous records will still be visible to others.")
+                    uiState.leaveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
-                    showLeaveDialog = false
                     viewModel.leaveGroup(onComplete = {
+                        showLeaveDialog = false
                         onNavigateBack()
                     })
-                }) {
-                    Text("Leave", color = MaterialTheme.colorScheme.error)
+                }, enabled = !uiState.isLeaving) {
+                    ActionLabel("Leave", "Leaving…", uiState.isLeaving)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showLeaveDialog = false }) {
+                TextButton(onClick = { showLeaveDialog = false }, enabled = !uiState.isLeaving) {
                     Text("Cancel")
                 }
             }
@@ -220,7 +227,8 @@ fun GroupDetailScreen(
                     onClick = { if (uiState.ledgerNeedsRefresh) viewModel.loadData() else viewModel.clearRecords() },
                     enabled = !uiState.isUpdatingLedger && !uiState.isLoading
                 ) {
-                    Text(if (uiState.ledgerNeedsRefresh) "Reload Hisab" else "Delete Records", color = MaterialTheme.colorScheme.error)
+                    ActionLabel(if (uiState.ledgerNeedsRefresh) "Reload Hisab" else "Delete Records",
+                        "Deleting…", uiState.isUpdatingLedger)
                 }
             },
             dismissButton = {
@@ -401,14 +409,7 @@ fun GroupDetailScreen(
                                 retryEnabled = !uiState.isLoading)
                         }
                     } else if (uiState.isLoading && uiState.members.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            contentAlignment = androidx.compose.ui.Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
+                        ListSkeleton("Loading balances", avatar = true)
                     } else if (uiState.members.isEmpty()) {
                         Box(
                             modifier = Modifier

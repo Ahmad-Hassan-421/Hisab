@@ -52,13 +52,15 @@ data class GroupDetailUiState(
     val entries: List<HisabEntry> = emptyList(),
     val recommendedUsers: List<User> = emptyList(),
     val currentUserId: String = "",
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = true,
     val loadFailure: AppFailure? = null,
     val isUpdatingLedger: Boolean = false,
     val ledgerFormError: String? = null,
     val ledgerNeedsRefresh: Boolean = false,
     val showClearRecordsDialog: Boolean = false,
     val isSendingRequest: Boolean = false,
+    val isLeaving: Boolean = false,
+    val leaveError: String? = null,
     val requestError: String? = null,
     val requestSuccessMessage: String? = null
 )
@@ -85,7 +87,11 @@ class GroupDetailViewModel @Inject constructor(
     }
 
     fun loadData() {
-        if (groupId.isBlank() || _uiState.value.isLoading) return
+        if (groupId.isBlank()) {
+            _uiState.update { it.copy(isLoading = false, loadFailure = AppFailure.MISSING) }
+            return
+        }
+        if (ledgerObservation?.isActive == true && _uiState.value.isLoading) return
         
         ledgerObservation?.cancel()
         ledgerObservation = viewModelScope.launch {
@@ -305,6 +311,8 @@ class GroupDetailViewModel @Inject constructor(
     }
     
     fun leaveGroup(onComplete: () -> Unit) {
+        if (_uiState.value.isLeaving) return
+        _uiState.update { it.copy(isLeaving = true, leaveError = null) }
         viewModelScope.launch {
             try {
                 groupRepository.leaveGroup(groupId)
@@ -313,7 +321,9 @@ class GroupDetailViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 val failure = failures.report("Leave Hisab", e)
-                _uiState.update { it.copy(requestError = failure.message) }
+                _uiState.update { it.copy(leaveError = failure.message) }
+            } finally {
+                _uiState.update { it.copy(isLeaving = false) }
             }
         }
     }

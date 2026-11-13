@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.hisab.features.ledger.domain.LedgerAmounts
+import com.example.hisab.ui.components.ActionLabel
 import com.example.hisab.features.ledger.presentation.MemberBalanceUI
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -160,7 +161,7 @@ fun RepaymentDialog(
                         }
                     }
                 }) {
-                    Text("Submit")
+                    ActionLabel("Submit", "Recording…", isSaving)
                 }
             }
         },

@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.hisab.ui.components.DynamicLogo
+import com.example.hisab.ui.components.ActionLabel
 import com.example.hisab.util.AppFailure
 import com.example.hisab.features.auth.presentation.AuthViewModel
 
@@ -232,19 +232,11 @@ fun LoginScreen(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
             ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text(
-                        text = if (uiState.isLoginMode) "Log In" else "Register",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                ActionLabel(
+                    label = if (uiState.isLoginMode) "Log In" else "Register",
+                    busyLabel = if (uiState.isLoginMode) "Signing in…" else "Creating account…",
+                    busy = uiState.isLoading
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))

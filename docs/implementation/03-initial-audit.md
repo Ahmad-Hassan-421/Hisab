@@ -35,7 +35,7 @@ The starting revision is `426a1c44d382908a4028e82aa4de8aaabfbfbc67`. GitHub conf
 | --- | --- |
 | 0. Initial inspection and baseline | COMPLETED |
 | 1. Global error states | COMPLETED |
-| 2. Loading states | PENDING |
+| 2. Loading states | COMPLETED |
 | 3. Exception handling | PENDING |
 | 4. Alerts and confirmations | PENDING |
 | 5. Non-blocking feedback | PENDING |

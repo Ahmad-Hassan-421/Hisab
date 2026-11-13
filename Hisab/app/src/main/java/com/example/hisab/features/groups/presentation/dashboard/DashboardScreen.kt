@@ -1,6 +1,7 @@
 package com.example.hisab.features.groups.presentation.dashboard
 
 import com.example.hisab.ui.components.LoadFailure
+import com.example.hisab.ui.components.ListSkeleton
 import com.example.hisab.ui.components.RefreshFailure
 
 import androidx.compose.foundation.clickable
@@ -25,7 +26,6 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -129,7 +129,7 @@ fun DashboardScreen(
         ) {
             val failure = uiState.failure
             if (!uiState.hasLoaded && uiState.isLoading && failure == null) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                ListSkeleton("Loading your Hisabs", Modifier.padding(16.dp))
             } else if (!uiState.hasLoaded && failure != null) {
                 LoadFailure("Couldn't load your Hisabs", failure, viewModel::refreshGroups,
                     Modifier.align(Alignment.Center), retryEnabled = !uiState.isLoading)

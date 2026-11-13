@@ -29,6 +29,7 @@ import coil.compose.SubcomposeAsyncImage
 import com.example.hisab.features.invitations.domain.HisabRequest
 import com.example.hisab.util.Constants
 import com.example.hisab.ui.components.LoadFailure
+import com.example.hisab.ui.components.ListSkeleton
 import com.example.hisab.ui.components.RefreshFailure
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,9 +78,7 @@ fun NotificationsScreen(
                 }
             }
             !uiState.hasLoaded && uiState.isLoading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                ListSkeleton("Loading invitations", Modifier.padding(16.dp), avatar = true)
             }
             uiState.requests.isEmpty() -> {
                 Box(

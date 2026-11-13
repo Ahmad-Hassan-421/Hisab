@@ -1,6 +1,7 @@
 package com.example.hisab.features.admin.presentation
 
 import com.example.hisab.ui.components.LoadFailure
+import com.example.hisab.ui.components.ListSkeleton
 import com.example.hisab.ui.components.RefreshFailure
 
 import androidx.compose.foundation.layout.*
@@ -87,9 +88,7 @@ fun AdminScreen(
                         retryEnabled = !uiState.isLoading)
                 }
             } else if (uiState.isLoading && uiState.entries.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                ListSkeleton("Loading ledger entries", Modifier.padding(16.dp))
             } else if (uiState.entries.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(

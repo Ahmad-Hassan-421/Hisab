@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.hisab.features.ledger.domain.LedgerAmounts
+import com.example.hisab.ui.components.ActionLabel
 import com.example.hisab.features.ledger.presentation.MemberBalanceUI
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -118,11 +119,7 @@ fun IOweHimDialog(
                 },
                 enabled = !isLoading && (onReload != null || isValid)
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                } else {
-                    Text(if (onReload != null) "Reload Hisab" else "Confirm")
-                }
+                ActionLabel(if (onReload != null) "Reload Hisab" else "Confirm", "Saving…", isLoading)
             }
         },
         dismissButton = {

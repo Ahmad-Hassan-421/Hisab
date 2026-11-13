@@ -40,7 +40,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,6 +56,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.LaunchedEffect
 import com.example.hisab.ui.components.LoadFailure
+import com.example.hisab.ui.components.ActionLabel
+import com.example.hisab.ui.components.ProfileSkeleton
 import com.example.hisab.ui.components.RefreshFailure
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -263,6 +264,10 @@ fun ProfileScreen(
             }
             return@Scaffold
         }
+        if (uiState.isLoading && uiState.email.isEmpty()) {
+            ProfileSkeleton(Modifier.padding(padding))
+            return@Scaffold
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -282,7 +287,9 @@ fun ProfileScreen(
                     modifier = Modifier
                         .size(120.dp)
                         .clip(CircleShape)
-                        .clickable { imagePickerLauncher.launch("image/*") },
+                        .clickable(enabled = !uiState.isUploading && !uiState.isSaving) {
+                            imagePickerLauncher.launch("image/*")
+                        },
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                 ) {
                     AsyncImage(
@@ -299,7 +306,9 @@ fun ProfileScreen(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .clickable { imagePickerLauncher.launch("image/*") },
+                        .clickable(enabled = !uiState.isUploading && !uiState.isSaving) {
+                            imagePickerLauncher.launch("image/*")
+                        },
                     color = MaterialTheme.colorScheme.primary
                 ) {
                     Icon(
@@ -337,8 +346,8 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            if (uiState.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.padding(16.dp))
+            if (uiState.isUploading) {
+                ActionLabel("Profile picture", "Uploading picture…", busy = true)
             }
 
 
@@ -370,7 +379,7 @@ fun ProfileScreen(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
             ) {
-                Text("Save Profile", fontWeight = FontWeight.Medium)
+                ActionLabel("Save Profile", "Saving profile…", uiState.isSaving)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
