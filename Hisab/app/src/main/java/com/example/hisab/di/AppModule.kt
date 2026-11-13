@@ -43,7 +43,11 @@ object DatabaseModule {
             HisabDatabase::class.java,
             "hisab.db"
         )
-        .addMigrations(HisabDatabase.MIGRATION_1_2, HisabDatabase.MIGRATION_2_3)
+        .addMigrations(
+            HisabDatabase.MIGRATION_1_2,
+            HisabDatabase.MIGRATION_2_3,
+            HisabDatabase.MIGRATION_3_4
+        )
         .build()
     }
 

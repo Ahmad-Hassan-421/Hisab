@@ -27,7 +27,10 @@ internal object ProfileImages {
     }
 
     fun publicUrl(value: String): String {
-        val path = storedPath(value).takeIf(::isSupported) ?: DEFAULT_PROFILE_PATH
+        if (value.isBlank() || value == DEFAULT_PROFILE_PATH) {
+            return DEFAULT_PROFILE_URL
+        }
+        val path = storedPath(value).takeIf(::isSupported) ?: DEFAULT_PROFILE_URL
         return if (renderOrigin != null && path.startsWith("/static/")) "$renderOrigin$path" else path
     }
 }

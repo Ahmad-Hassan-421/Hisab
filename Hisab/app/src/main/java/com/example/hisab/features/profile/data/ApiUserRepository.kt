@@ -29,14 +29,24 @@ class ApiUserRepository @Inject constructor(
 
     override fun getCurrentUser(userId: String): Flow<User?> = userDao.getUser(userId)
 
-    override suspend fun fetchRemoteUser(userId: String): User? {
+    override suspend fun fetchRemoteUser(userId: String, allowCached: Boolean): User? {
+        val existing = userDao.getUser(userId).first()
         return try {
             val dto = api.getUser(userId)
+            val remotePic = dto.profilePicUrl
+            val picToUse = if (!remotePic.isNullOrBlank() && !remotePic.endsWith("default_profile.png")) {
+                remotePic
+            } else if (!existing?.profilePicUrl.isNullOrBlank() && existing?.profilePicUrl?.endsWith("default_profile.png") == false) {
+                existing.profilePicUrl
+            } else {
+                com.example.hisab.util.Constants.DEFAULT_GOOGLE_AVATAR_URL
+            }
+
             val user = User(
                 id = dto.id,
                 name = dto.name,
                 email = dto.email,
-                profilePicUrl = dto.profilePicUrl ?: "",
+                profilePicUrl = picToUse,
                 themePreference = dto.themePreference ?: "system",
                 role = dto.role ?: "user",
                 uniqueId = dto.uniqueId ?: "",
@@ -48,17 +58,25 @@ class ApiUserRepository @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            userDao.getUser(userId).first()
+            if (!allowCached) throw e
+            existing ?: userDao.getUser(userId).first()
         }
     }
 
     override suspend fun createUserDocument(user: User) {
-        userDao.insert(user)
+        val pic = if (user.profilePicUrl.isBlank() || user.profilePicUrl.endsWith("default_profile.png")) {
+            com.example.hisab.util.Constants.DEFAULT_GOOGLE_AVATAR_URL
+        } else {
+            user.profilePicUrl
+        }
+        userDao.insert(user.copy(profilePicUrl = pic))
     }
 
     override suspend fun saveUser(user: User) {
         val userWithRole = preserveRole(user)
-        api.updateUser(user.id, UpdateUserRequest(userWithRole.name, userWithRole.profilePicUrl, userWithRole.themePreference))
+        try {
+            api.updateUser(user.id, UpdateUserRequest(userWithRole.name, userWithRole.profilePicUrl, userWithRole.themePreference))
+        } catch (_: Exception) {}
         userDao.insert(userWithRole)
     }
 
@@ -73,12 +91,16 @@ class ApiUserRepository @Inject constructor(
     }
 
     override suspend fun uploadProfilePicture(uri: Uri): String = withContext(Dispatchers.IO) {
+        val localPersistentAvatar = File(context.filesDir, "current_user_avatar.jpg")
         val file = File.createTempFile("profile-", ".jpg", context.cacheDir)
         try {
             val input = checkNotNull(context.contentResolver.openInputStream(uri)) { "Could not open selected image" }
             input.use { source ->
                 file.outputStream().use { output -> source.copyTo(output) }
             }
+            // Cache locally in persistent internal filesDir so it survives app restarts
+            runCatching { file.copyTo(localPersistentAvatar, overwrite = true) }
+
             val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
             val body = MultipartBody.Part.createFormData("image", file.name, requestFile)
             api.uploadProfilePic(body).url

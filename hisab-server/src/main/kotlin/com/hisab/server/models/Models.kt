@@ -27,7 +27,8 @@ data class HisabEntryDocument(
     val creditorId: String, // Person who is owed money
     val amount: Double,
     val description: String = "",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val type: String = "EXPENSE"
 )
 
 @Serializable

@@ -9,49 +9,64 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.hisab.features.ledger.domain.LedgerAmounts
 import com.example.hisab.features.ledger.presentation.MemberBalanceUI
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RepaymentDialog(
-    members: List<MemberBalanceUI>,
-    currentUserId: String,
+    debtors: List<MemberBalanceUI>,
+    creditors: List<MemberBalanceUI>,
+    isSaving: Boolean,
+    error: String?,
+    onReload: (() -> Unit)?,
     onDismiss: () -> Unit,
     onEveryonePaidSame: (amount: Double) -> Unit,
     onEveryonePaidDifferent: (amounts: Map<String, Double>) -> Unit,
-    onSomeonePaid: (debtorId: String, amount: Double) -> Unit
+    onSomeonePaid: (debtorId: String, amount: Double) -> Unit,
+    onIPaidSomeone: (creditorId: String, amount: Double) -> Unit
 ) {
-    var mode by remember { mutableStateOf(0) } // 0=Menu, 1=Same, 2=Diff, 3=Specific
+    var mode by remember { mutableStateOf(0) } // 0=Menu, 1=Same, 2=Different, 3=Received, 4=Paid
     var amountText by remember { mutableStateOf("") }
     var selectedUserId by remember { mutableStateOf("") }
+    var showAmountError by remember { mutableStateOf(false) }
     
     // For mode 2
     val differentAmounts = remember { mutableStateMapOf<String, String>() }
+    val counterparties = if (mode == 4) creditors else debtors
 
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (mode == 0) "Someone Paid" else "Enter Repayment") },
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        title = { Text(if (mode == 0) "Record Repayment" else "Enter Repayment") },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 if (mode == 0) {
-                    Button(onClick = { mode = 1 }, modifier = Modifier.fillMaxWidth()) { Text("Everyone paid Same") }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(onClick = { mode = 2 }, modifier = Modifier.fillMaxWidth()) { Text("Everyone Paid Different") }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(onClick = { mode = 3 }, modifier = Modifier.fillMaxWidth()) { Text("Someone paid") }
+                    if (debtors.isNotEmpty()) {
+                        Button(onClick = { mode = 1 }, modifier = Modifier.fillMaxWidth()) { Text("Everyone paid Same") }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = { mode = 2 }, modifier = Modifier.fillMaxWidth()) { Text("Everyone Paid Different") }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = { mode = 3 }, modifier = Modifier.fillMaxWidth()) { Text("Someone paid me") }
+                    }
+                    if (creditors.isNotEmpty()) {
+                        if (debtors.isNotEmpty()) Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = { mode = 4 }, modifier = Modifier.fillMaxWidth()) { Text("I paid someone") }
+                    }
                 } else if (mode == 1) {
                     OutlinedTextField(
                         value = amountText,
-                        onValueChange = { amountText = it },
+                        onValueChange = {
+                            amountText = it
+                            showAmountError = false
+                        },
                         label = { Text("Amount paid by each") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth()
                     )
                 } else if (mode == 2) {
-                    val otherMembers = members.filter { it.user.id != currentUserId }
                     Box(modifier = Modifier.heightIn(max = 200.dp)) {
                         LazyColumn {
-                            items(otherMembers) { member ->
+                            items(debtors) { member ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
@@ -59,7 +74,10 @@ fun RepaymentDialog(
                                     Text(member.user.name, modifier = Modifier.weight(1f))
                                     OutlinedTextField(
                                         value = differentAmounts[member.user.id] ?: "",
-                                        onValueChange = { differentAmounts[member.user.id] = it },
+                                        onValueChange = {
+                                            differentAmounts[member.user.id] = it
+                                            showAmountError = false
+                                        },
                                         modifier = Modifier.weight(1f),
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                         singleLine = true
@@ -68,8 +86,7 @@ fun RepaymentDialog(
                             }
                         }
                     }
-                } else if (mode == 3) {
-                    val otherMembers = members.filter { it.user.id != currentUserId }
+                } else {
                     var expanded by remember { mutableStateOf(false) }
                     
                     ExposedDropdownMenuBox(
@@ -78,7 +95,7 @@ fun RepaymentDialog(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         OutlinedTextField(
-                            value = otherMembers.find { it.user.id == selectedUserId }?.user?.name ?: "Select a member",
+                            value = counterparties.find { it.user.id == selectedUserId }?.user?.name ?: "Select a member",
                             onValueChange = {},
                             readOnly = true,
                             modifier = Modifier.fillMaxWidth().menuAnchor(),
@@ -89,7 +106,7 @@ fun RepaymentDialog(
                             expanded = expanded,
                             onDismissRequest = { expanded = false }
                         ) {
-                            otherMembers.forEach { member ->
+                            counterparties.forEach { member ->
                                 DropdownMenuItem(
                                     text = { Text(member.user.name) },
                                     onClick = {
@@ -103,37 +120,52 @@ fun RepaymentDialog(
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = amountText,
-                        onValueChange = { amountText = it },
+                        onValueChange = {
+                            amountText = it
+                            showAmountError = false
+                        },
                         label = { Text("Amount paid") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+                if (showAmountError) {
+                    Text(LedgerAmounts.AMOUNT_ERROR, color = MaterialTheme.colorScheme.error)
+                }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
-            if (mode != 0) {
-                TextButton(onClick = {
-                    if (mode == 1) {
-                        val amt = amountText.toDoubleOrNull() ?: 0.0
-                        if (amt > 0) onEveryonePaidSame(amt)
-                    } else if (mode == 2) {
-                        val parsed = differentAmounts.mapValues { it.value.toDoubleOrNull() ?: 0.0 }.filter { it.value > 0.0 }
-                        onEveryonePaidDifferent(parsed)
-                    } else if (mode == 3) {
-                        val amt = amountText.toDoubleOrNull() ?: 0.0
-                        if (amt > 0 && selectedUserId.isNotEmpty()) {
-                            onSomeonePaid(selectedUserId, amt)
+            if (onReload != null) {
+                TextButton(onClick = onReload) { Text("Reload Hisab") }
+            } else if (mode != 0) {
+                TextButton(enabled = !isSaving && (mode <= 2 || counterparties.any { it.user.id == selectedUserId }), onClick = {
+                    if (mode == 2) {
+                        val amounts = LedgerAmounts.parseRepaymentAmounts(differentAmounts)
+                        if (amounts == null) {
+                            showAmountError = true
+                            return@TextButton
+                        }
+                        onEveryonePaidDifferent(amounts)
+                    } else {
+                        val amount = LedgerAmounts.parseAmount(amountText)
+                        if (amount == null) {
+                            showAmountError = true
+                            return@TextButton
+                        }
+                        when (mode) {
+                            1 -> onEveryonePaidSame(amount)
+                            3 -> onSomeonePaid(selectedUserId, amount)
+                            4 -> onIPaidSomeone(selectedUserId, amount)
                         }
                     }
-                    onDismiss()
                 }) {
                     Text("Submit")
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Cancel") }
         }
     )
 }

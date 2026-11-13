@@ -43,7 +43,7 @@ class ApiHisabRepository @Inject constructor(
         hisabEntryDao.deleteEntriesForGroup(groupId)
     }
 
-    private fun HisabEntry.toRequest() = CreateEntryRequest(groupId, debtorId, creditorId, amount, description, id)
+    private fun HisabEntry.toRequest() = CreateEntryRequest(groupId, debtorId, creditorId, amount, description, id, type)
 
-    private fun HisabEntryDto.toEntity() = HisabEntry(id, groupId, debtorId, creditorId, amount, description.orEmpty(), timestamp)
+    private fun HisabEntryDto.toEntity() = HisabEntry(id, groupId, debtorId, creditorId, amount, description.orEmpty(), timestamp, type)
 }

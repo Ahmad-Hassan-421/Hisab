@@ -307,7 +307,7 @@ fun UpdateAvailableCard(
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
-                        text = "Version ${release.versionName} (Build ${release.versionCode})",
+                        text = "Version ${release.versionName}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                     )

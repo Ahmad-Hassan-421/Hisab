@@ -116,6 +116,7 @@ fun HisabNavHost(startDest: String) {
     ) {
         composable("login") {
             LoginScreen(
+                sessionExpired = requiresSignIn,
                 onNavigateToDashboard = {
                     navController.navigate("dashboard") {
                         popUpTo("login") { inclusive = true }

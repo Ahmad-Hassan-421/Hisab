@@ -8,7 +8,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [User::class, HisabEntry::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(HisabStatusConverter::class)
@@ -30,5 +30,10 @@ abstract class HisabDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE hisab_entries ADD COLUMN type TEXT NOT NULL DEFAULT 'EXPENSE'")
+            }
+        }
     }
 }

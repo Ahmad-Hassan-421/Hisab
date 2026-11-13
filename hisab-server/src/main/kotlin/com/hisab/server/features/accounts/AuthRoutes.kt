@@ -1,6 +1,6 @@
 package com.hisab.server.features.accounts
 
-import com.hisab.server.features.media.DEFAULT_PROFILE_PATH
+import com.hisab.server.features.media.DEFAULT_PROFILE_URL
 
 import com.hisab.server.database.MongoClientProvider
 import com.hisab.server.models.UserDocument
@@ -44,7 +44,7 @@ fun Route.authRoutes() {
                 email = req.email,
                 passwordHash = PasswordUtil.hash(req.password),
                 uniqueId = uniqueId,
-                profilePicUrl = DEFAULT_PROFILE_PATH
+                profilePicUrl = DEFAULT_PROFILE_URL
             )
             
             try {

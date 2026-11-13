@@ -1,0 +1,9 @@
+# Android error handling and recovery
+
+Android classifies offline connections, timeouts, unavailable services, unreadable responses, expired sessions, missing records, permission failures, validation errors, conflicts, local storage failures, and rate limiting. Screens display fixed user-facing messages. Diagnostic entries contain the operation, failure category, and exception class.
+
+Home, Hisab detail, invitations, profile, and the local ledger view show a retry action after a failed load. Previously loaded content remains visible when it is still usable. The sign-in screen explains when a session expires. Profile saves report success after the server confirms the update.
+
+Ledger forms retain inputs after a failed save. An uncertain outcome or a conflict requires a successful ledger reload before another write is enabled. The app never automatically retries that write. The existing Room migration adds the ledger type while retaining existing rows, and unsupported migrations no longer fall back to deleting the database.
+
+The Phase 1 debug build and lint succeeded. All 22 JVM tests passed, including coverage of HTTP and transport classification, malformed responses, storage failures, cancellation, dashboard retry coalescing, and ledger recovery after a timed-out write. Lint reported zero errors and 97 warnings. An in-memory SQLite check confirmed that the migration SQL preserves an existing row and assigns the expected default. Device-level screen and Room upgrade checks remain outstanding.

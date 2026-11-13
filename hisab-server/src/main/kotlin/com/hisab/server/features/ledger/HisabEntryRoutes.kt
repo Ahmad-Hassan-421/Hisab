@@ -15,6 +15,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonPrimitive
 import org.litote.kmongo.eq
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -25,20 +26,35 @@ data class CreateEntryRequest(
     val groupId: String,
     val debtorId: String,
     val creditorId: String,
-    val amount: Double,
+    val amount: JsonPrimitive,
     val description: String,
-    val clientEntryId: String? = null
+    val clientEntryId: String? = null,
+    val type: String = "EXPENSE"
 )
 @Serializable data class CreateBatchEntryRequest(val entries: List<CreateEntryRequest>)
+
+private const val REPAYMENT = "REPAYMENT"
+private const val AMOUNT_SCALE = 3
+private val maxAmount = BigDecimal("1000000000")
 
 private fun CreateEntryRequest.isValidFor(group: HisabGroupDocument, actor: String): Boolean =
     groupId == group.id && debtorId != creditorId &&
         (debtorId == actor || creditorId == actor) &&
-        debtorId in group.members && creditorId in group.members &&
-        amount.isFinite() && amount > 0 && amount <= 1_000_000_000 && description.length <= 500 &&
-        (clientEntryId == null || BigDecimal.valueOf(amount).stripTrailingZeros().scale() <= 3)
+        canRecordEntryFor(debtorId, group) && canRecordEntryFor(creditorId, group) &&
+        description.length <= 500
+
+private fun CreateEntryRequest.canRecordEntryFor(userId: String, group: HisabGroupDocument): Boolean =
+    userId in group.members || (type == REPAYMENT && userId in group.exMembers)
 
 private fun CreateEntryRequest.toDocument(actor: String): HisabEntryDocument {
+    val decimal = amount.content.toBigDecimalOrNull()
+    val requiresLedgerPrecision = clientEntryId != null || type == REPAYMENT
+    if (decimal == null || decimal.signum() <= 0 || decimal > maxAmount ||
+        (requiresLedgerPrecision && decimal.stripTrailingZeros().scale() > AMOUNT_SCALE) ||
+        decimal.toDouble() == 0.0
+    ) {
+        throw RequestFailure(HttpStatusCode.BadRequest, "Invalid ledger amount")
+    }
     val id = clientEntryId?.let { provided ->
         val parsed = runCatching { UUID.fromString(provided) }.getOrNull()
         if (parsed == null || !parsed.toString().equals(provided, ignoreCase = true)) {
@@ -46,7 +62,7 @@ private fun CreateEntryRequest.toDocument(actor: String): HisabEntryDocument {
         }
         UUID.nameUUIDFromBytes("$actor:$parsed".toByteArray(Charsets.UTF_8))
     } ?: UUID.randomUUID()
-    return HisabEntryDocument(id.toString(), groupId, debtorId, creditorId, amount, description)
+    return HisabEntryDocument(id.toString(), groupId, debtorId, creditorId, decimal.toDouble(), description, type = type)
 }
 
 private suspend fun persistEntries(inputs: List<CreateEntryRequest>, actor: String): List<HisabEntryDocument> {
@@ -62,6 +78,10 @@ private suspend fun persistEntries(inputs: List<CreateEntryRequest>, actor: Stri
         }
         val previous = documents.map { entries.findOne(session, HisabEntryDocument::id eq it.id) }
         if (previous.all { it == null }) {
+            if (documents.any { it.type == REPAYMENT }) {
+                val history = entries.find(session, HisabEntryDocument::groupId eq group.id).toList()
+                history.validateRepayments(documents)
+            }
             entries.insertMany(session, documents)
             documents
         } else {
@@ -74,17 +94,52 @@ private suspend fun persistEntries(inputs: List<CreateEntryRequest>, actor: Stri
     }
 }
 
-private fun List<HisabEntryDocument>.isSettled(): Boolean {
-    val balances = mutableMapOf<Pair<String, String>, BigDecimal>()
-    for (entry in this) {
-        if (!entry.amount.isFinite()) return false
-        val ascending = entry.debtorId <= entry.creditorId
-        val pair = if (ascending) entry.debtorId to entry.creditorId else entry.creditorId to entry.debtorId
+private fun HisabEntryDocument.ledgerPair(): Pair<String, String> =
+    if (debtorId <= creditorId) debtorId to creditorId else creditorId to debtorId
+
+private class PairBalances {
+    private val amounts = mutableMapOf<Pair<String, String>, BigDecimal>()
+    private val legacyAmounts = mutableMapOf<Pair<String, String>, BigDecimal>()
+
+    fun add(entry: HisabEntryDocument) {
+        if (entry.debtorId == entry.creditorId) return
+        val pair = entry.ledgerPair()
         val amount = BigDecimal.valueOf(entry.amount)
-        balances[pair] = balances.getOrDefault(pair, BigDecimal.ZERO) + if (ascending) amount else -amount
+        val balances = if (amount.stripTrailingZeros().scale() > AMOUNT_SCALE) legacyAmounts else amounts
+        val signedAmount = if (entry.debtorId == pair.first) amount else -amount
+        balances[pair] = balances.getOrDefault(pair, BigDecimal.ZERO) + signedAmount
     }
-    return balances.values.all { it.setScale(3, RoundingMode.HALF_UP).signum() == 0 }
+
+    operator fun get(pair: Pair<String, String>): BigDecimal =
+        amounts.getOrDefault(pair, BigDecimal.ZERO) +
+            legacyAmounts.getOrDefault(pair, BigDecimal.ZERO).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP)
+
+    fun isSettled(): Boolean = (amounts.keys + legacyAmounts.keys).all { this[it].signum() == 0 }
 }
+
+private fun List<HisabEntryDocument>.balancesByPair(): PairBalances =
+    PairBalances().also { balances -> forEach { balances.add(it) } }
+
+private fun List<HisabEntryDocument>.validateRepayments(documents: List<HisabEntryDocument>) {
+    if (any { !it.amount.isFinite() }) {
+        throw RequestFailure(HttpStatusCode.Conflict, "The ledger contains an invalid amount")
+    }
+    val balances = balancesByPair()
+    for (entry in documents) {
+        if (entry.type == REPAYMENT) {
+            val pair = entry.ledgerPair()
+            val balance = balances[pair]
+            val owed = if (entry.debtorId == pair.first) -balance else balance
+            if (BigDecimal.valueOf(entry.amount) > owed) {
+                throw RequestFailure(HttpStatusCode.Conflict, "Repayment exceeds the outstanding balance")
+            }
+        }
+        balances.add(entry)
+    }
+}
+
+private fun List<HisabEntryDocument>.isSettled(): Boolean =
+    all { it.amount.isFinite() } && balancesByPair().isSettled()
 
 fun Route.hisabEntryRoutes() {
     authenticate("auth-jwt") {

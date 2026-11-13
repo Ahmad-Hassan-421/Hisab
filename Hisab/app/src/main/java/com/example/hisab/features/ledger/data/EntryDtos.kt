@@ -7,7 +7,8 @@ data class HisabEntryDto(
     val creditorId: String,
     val amount: Double,
     val description: String?,
-    val timestamp: Long
+    val timestamp: Long,
+    val type: String = "EXPENSE"
 )
 
 data class CreateEntryRequest(
@@ -16,7 +17,8 @@ data class CreateEntryRequest(
     val creditorId: String,
     val amount: Double,
     val description: String,
-    val clientEntryId: String
+    val clientEntryId: String,
+    val type: String = "EXPENSE"
 )
 
 data class CreateBatchEntryRequest(

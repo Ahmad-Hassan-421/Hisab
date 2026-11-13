@@ -55,11 +55,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.hisab.ui.components.DynamicLogo
+import com.example.hisab.util.AppFailure
 import com.example.hisab.features.auth.presentation.AuthViewModel
 
 @Composable
 fun LoginScreen(
     onNavigateToDashboard: () -> Unit,
+    sessionExpired: Boolean = false,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -130,6 +132,11 @@ fun LoginScreen(
             )
 
             Spacer(modifier = Modifier.height(24.dp))
+
+            if (sessionExpired) {
+                Text(AppFailure.SESSION_EXPIRED.message, color = MaterialTheme.colorScheme.error)
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             if (!uiState.isLoginMode) {
                 OutlinedTextField(

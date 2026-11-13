@@ -15,6 +15,7 @@ import java.util.UUID
 
 @Serializable data class UploadResponse(val url: String)
 
+internal const val DEFAULT_PROFILE_URL = "https://ssl.gstatic.com/images/branding/product/1x/avatar_circle_blue_512dp.png"
 internal const val DEFAULT_PROFILE_PATH = "/static/default_profile.png"
 private const val MAX_PROFILE_BYTES = 5 * 1024 * 1024
 

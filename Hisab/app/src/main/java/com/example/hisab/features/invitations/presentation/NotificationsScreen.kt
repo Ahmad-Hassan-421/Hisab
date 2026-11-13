@@ -28,6 +28,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.SubcomposeAsyncImage
 import com.example.hisab.features.invitations.domain.HisabRequest
 import com.example.hisab.util.Constants
+import com.example.hisab.ui.components.LoadFailure
+import com.example.hisab.ui.components.RefreshFailure
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,8 +38,16 @@ fun NotificationsScreen(
     viewModel: NotificationsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val snackbars = remember { SnackbarHostState() }
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            snackbars.showSnackbar(it)
+            viewModel.clearActionError()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbars) },
         topBar = {
             TopAppBar(
                 title = { Text("Invitations & Requests", fontWeight = FontWeight.Bold) },
@@ -54,17 +64,26 @@ fun NotificationsScreen(
             )
         }
     ) { padding ->
+        val failure = uiState.loadFailure
+        Column(Modifier.fillMaxSize().padding(padding)) {
+        if (uiState.hasLoaded && failure != null) {
+            RefreshFailure(failure, viewModel::refreshRequests, !uiState.isLoading)
+        }
         when {
-            uiState.isLoading && uiState.requests.isEmpty() -> {
+            !uiState.hasLoaded && failure != null -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    LoadFailure("Couldn't load invitations", failure, viewModel::refreshRequests,
+                        retryEnabled = !uiState.isLoading)
+                }
+            }
+            !uiState.hasLoaded && uiState.isLoading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
             uiState.requests.isEmpty() -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -103,7 +122,6 @@ fun NotificationsScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -118,6 +136,7 @@ fun NotificationsScreen(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -146,11 +165,10 @@ fun RequestCard(
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // Inviter Avatar with fallback
-                val avatarUrl = (request.profilePictureUrl ?: request.senderProfilePicUrl).takeIf { it.isNotBlank() }
-                val initials = request.senderName.trim().take(1).uppercase().ifEmpty { "?" }
+                val avatarUrl = (request.profilePictureUrl ?: request.senderProfilePicUrl).ifBlank { Constants.DEFAULT_GOOGLE_AVATAR_URL }
 
                 SubcomposeAsyncImage(
-                    model = avatarUrl?.let { Constants.profileImageUrl(it) },
+                    model = Constants.profileImageUrl(avatarUrl),
                     contentDescription = "${request.senderName}'s profile picture",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -172,19 +190,12 @@ fun RequestCard(
                         }
                     },
                     error = {
-                        Surface(
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(id = com.example.hisab.R.drawable.ic_default_google_avatar),
+                            contentDescription = "Default avatar",
                             modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = initials,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
+                            contentScale = ContentScale.Crop
+                        )
                     }
                 )
 

@@ -19,5 +19,6 @@ data class HisabEntry(
     @ColumnInfo(name = "creditor_id") val creditorId: String,
     @ColumnInfo(name = "amount") val amount: Double,
     @ColumnInfo(name = "description") val description: String = "",
-    @ColumnInfo(name = "timestamp") val timestamp: Long = System.currentTimeMillis()
+    @ColumnInfo(name = "timestamp") val timestamp: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "type", defaultValue = "'EXPENSE'") val type: String = "EXPENSE"
 )

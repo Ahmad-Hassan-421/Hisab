@@ -102,7 +102,8 @@ def main():
         expect("blank token subject rejected", 401, "GET", f"/groups?userId={aid}", no_subject)
     profile = expect("own profile lookup", 200, "GET", f"/users/{aid}", a)
     check("profile hides hash", isinstance(profile, dict) and "passwordHash" not in profile)
-    check("default profile is portable", isinstance(profile, dict) and profile.get("profilePicUrl") == f"{public_origin}/static/default_profile.png")
+    check("default profile uses the configured avatar", isinstance(profile, dict) and
+          profile.get("profilePicUrl") == "https://ssl.gstatic.com/images/branding/product/1x/avatar_circle_blue_512dp.png")
     expect("lookup by invite ID", 200, "GET", f"/users/by-unique-id/{user_b['uniqueId']}", a)
     profile_update = {"name": "Alice QA", "themePreference": "dark", "profilePicUrl": "/static/default_profile.png"}
     expect("reject cross-user profile update", 403, "PUT", f"/users/{aid}", x, profile_update)
@@ -131,7 +132,12 @@ def main():
     if args.extended:
         with connection, socket_input:
             prefix = socket_input.read(2)
-            event = socket_input.read(prefix[1] & 127) if len(prefix) == 2 and prefix[0] & 15 == 1 else b"{}"
+            event = b"{}"
+            if len(prefix) == 2 and prefix[0] & 15 == 1:
+                length = prefix[1] & 127
+                if length in (126, 127):
+                    length = int.from_bytes(socket_input.read(2 if length == 126 else 8), "big")
+                event = socket_input.read(length)
             check("receiver receives WebSocket invitation event", json.loads(event).get("type") == "NEW_REQUEST")
         retries = concurrent(lambda _: request("POST", "/requests", a, invite))
         check("concurrent invitation replays retain the same request",
@@ -156,12 +162,15 @@ def main():
     expect("reject unrelated entry participants", 400, "POST", "/entries", a, {**entry, "debtorId": xid})
     if args.extended:
         expect("reject precision beyond thousandths", 400, "POST", "/entries", a, {**entry, "amount": 1.2345})
+        for decimal in (b"1.23400000000000000001", b"1000000000.000000001"):
+            body = json.dumps({**entry, "amount": "DECIMAL"}).encode().replace(b'"DECIMAL"', decimal)
+            expect("validate the exact decimal before storage", 400, "POST", "/entries", a, body)
         invalid_batch = [entry, {**entry, "amount": -1, "clientEntryId": str(uuid.uuid4())}]
         expect("reject entire invalid batch", 400, "POST", "/entries/batch", a, {"entries": invalid_batch})
         check("invalid batch leaves ledger empty", request("GET", f"/entries?groupId={gid}", a) == (200, []))
     created = expect("create expense", 201, "POST", "/entries", a, entry)
     eid = created["id"]
-    repayment = {**entry, "debtorId": aid, "creditorId": bid}
+    repayment = {**entry, "debtorId": aid, "creditorId": bid, "type": "REPAYMENT"}
     if args.extended:
         retries = concurrent(lambda _: request("POST", "/entries", a, entry))
         check("concurrent entry replays retain the same ID",
@@ -169,7 +178,34 @@ def main():
         expect("reject reused ID with changed amount", 409, "POST", "/entries", a, {**entry, "amount": 2})
         expect("prevent clearing an unsettled ledger", 409, "DELETE", f"/entries/group/{gid}", a)
         repayment["clientEntryId"] = str(uuid.uuid4())
-    expect("create repayment batch", 201, "POST", "/entries/batch", a, {"entries": [repayment]})
+        overpayment = {**repayment, "amount": 1.235, "clientEntryId": str(uuid.uuid4())}
+        status, result = request("POST", "/entries", a, overpayment)
+        check("reject a repayment larger than the outstanding balance", status == 409, f"(HTTP {status})")
+        if status == 201:
+            expect("remove unexpected overpayment fixture", 200, "DELETE", f"/entries/{result['id']}", a)
+        excessive_batch = [
+            {**repayment, "amount": 0.700, "clientEntryId": str(uuid.uuid4())}
+            for _ in range(2)
+        ]
+        status, result = request("POST", "/entries/batch", a, {"entries": excessive_batch})
+        check("reject a batch whose repayments together exceed the balance", status == 409, f"(HTTP {status})")
+        if status == 201:
+            for item in result:
+                expect("remove unexpected repayment fixture", 200, "DELETE", f"/entries/{item['id']}", a)
+        check("rejected repayments leave the ledger intact", len(request("GET", f"/entries?groupId={gid}", a)[1]) == 1)
+        competing = [
+            {**repayment, "clientEntryId": str(uuid.uuid4())}
+            for _ in range(2)
+        ]
+        outcomes = concurrent(lambda index: request("POST", "/entries/batch", a, {"entries": [competing[index]]}))
+        check("concurrent full repayments post only once", sorted(status for status, _ in outcomes) == [201, 409])
+        winner = next(index for index, (status, _) in enumerate(outcomes) if status == 201)
+        for index, (status, result) in enumerate(outcomes):
+            if status == 201 and index != winner:
+                expect("remove unexpected concurrent repayment fixture", 200, "DELETE", f"/entries/{result[0]['id']}", a)
+        expect("repayment replay succeeds after settlement", 201, "POST", "/entries/batch", a, {"entries": [competing[winner]]})
+    else:
+        expect("create repayment batch", 201, "POST", "/entries/batch", a, {"entries": [repayment]})
     history = expect("list group ledger", 200, "GET", f"/entries?groupId={gid}", b)
     check("ledger round-trips the amount", isinstance(history, list) and any(e["id"] == eid and e["amount"] == 1.234 for e in history))
     if args.extended:
@@ -205,7 +241,24 @@ def main():
     expect("clear ledger as member", 200, "DELETE", f"/entries/group/{gid}", a)
     empty = expect("reload cleared ledger", 200, "GET", f"/entries?groupId={gid}", b)
     check("ledger is empty after clear", empty == [])
+    if args.extended:
+        legacy = {key: value for key, value in entry.items() if key != "clientEntryId"}
+        expect("retain support for fractional legacy entries", 201, "POST", "/entries", a, {**legacy, "amount": 1.0025})
     expect("leave group", 200, "POST", f"/groups/{gid}/leave", b)
+    if args.extended:
+        former_member_repayment = {**repayment, "amount": 1.003, "clientEntryId": str(uuid.uuid4())}
+        expect("settle a rounded balance with a former member", 201, "POST", "/entries", a, former_member_repayment)
+        expect("clear a settled legacy balance", 200, "DELETE", f"/entries/group/{gid}", a)
+        expect("reject a new expense for a former member", 400, "POST", "/entries", a,
+               {**entry, "clientEntryId": str(uuid.uuid4())})
+        rejoin = expect("reinvite the former member", 201, "POST", "/requests", a, invite)
+        expect("rejoin group", 200, "PATCH", f"/requests/{rejoin['id']}", b, {"status": "accepted"})
+        direct = {**repayment, "type": "DIRECT_DEBT", "amount": 2, "clientEntryId": str(uuid.uuid4())}
+        expect("record debt owed to another member", 201, "POST", "/entries", a, direct)
+        expect("creditor leaves with a balance", 200, "POST", f"/groups/{gid}/leave", b)
+        paid = {**entry, "type": "REPAYMENT", "amount": 2, "clientEntryId": str(uuid.uuid4())}
+        expect("record payment to a former member", 201, "POST", "/entries", a, paid)
+        expect("clear after paying a former member", 200, "DELETE", f"/entries/group/{gid}", a)
     expect("deny former member reading ledger", 403, "GET", f"/entries?groupId={gid}", b)
     expect("deny outsider deleting group", 403, "DELETE", f"/groups/{gid}", x)
     expect("delete group as member", 200, "DELETE", f"/groups/{gid}", a)

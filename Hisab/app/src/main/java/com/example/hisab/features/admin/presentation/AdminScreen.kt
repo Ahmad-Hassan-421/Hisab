@@ -1,5 +1,8 @@
 package com.example.hisab.features.admin.presentation
 
+import com.example.hisab.ui.components.LoadFailure
+import com.example.hisab.ui.components.RefreshFailure
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -74,7 +77,16 @@ fun AdminScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            if (uiState.isLoading) {
+            val failure = uiState.failure
+            if (failure != null && uiState.entries.isNotEmpty()) {
+                RefreshFailure(failure, viewModel::loadGlobalEntries, !uiState.isLoading)
+            }
+            if (failure != null && uiState.entries.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    LoadFailure("Couldn't load entries", failure, viewModel::loadGlobalEntries,
+                        retryEnabled = !uiState.isLoading)
+                }
+            } else if (uiState.isLoading && uiState.entries.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }

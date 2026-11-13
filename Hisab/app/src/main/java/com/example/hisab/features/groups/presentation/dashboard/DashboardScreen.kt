@@ -1,5 +1,8 @@
 package com.example.hisab.features.groups.presentation.dashboard
 
+import com.example.hisab.ui.components.LoadFailure
+import com.example.hisab.ui.components.RefreshFailure
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -124,42 +127,44 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (uiState.isLoading) {
+            val failure = uiState.failure
+            if (!uiState.hasLoaded && uiState.isLoading && failure == null) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (uiState.error != null) {
-                Text(
-                    text = uiState.error ?: "",
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.align(Alignment.Center)
-                )
-            } else if (uiState.groups.isEmpty()) {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "No Hisab groups yet.",
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Tap the + button to create one.",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
+            } else if (!uiState.hasLoaded && failure != null) {
+                LoadFailure("Couldn't load your Hisabs", failure, viewModel::refreshGroups,
+                    Modifier.align(Alignment.Center), retryEnabled = !uiState.isLoading)
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(uiState.groups) { group ->
-                        HisabGroupItem(
-                            group = group, 
-                            onClick = { onGroupClick(group.id) }
-                        )
+                Column(modifier = Modifier.fillMaxSize()) {
+                    if (failure != null) RefreshFailure(failure, viewModel::refreshGroups, !uiState.isLoading)
+                    uiState.actionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    if (uiState.groups.isEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "No Hisab groups yet.",
+                                fontSize = 18.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Tap the + button to create one.",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(uiState.groups) { group ->
+                                HisabGroupItem(group = group, onClick = { onGroupClick(group.id) })
+                            }
+                        }
                     }
                 }
             }

@@ -7,6 +7,7 @@ import com.example.hisab.BuildConfig
 import com.example.hisab.features.settings.data.AppUpdateResponse
 import com.example.hisab.features.settings.domain.UpdateRepository
 import com.example.hisab.util.ApkUpdateManager
+import com.example.hisab.util.FailureReporter
 import com.example.hisab.util.ThemeMode
 import com.example.hisab.util.ThemePreferencesManager
 import com.example.hisab.util.UpdateDownloadStatus
@@ -34,7 +35,8 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     private val updateRepository: UpdateRepository,
     private val apkUpdateManager: ApkUpdateManager,
-    private val themePreferencesManager: ThemePreferencesManager
+    private val themePreferencesManager: ThemePreferencesManager,
+    private val failures: FailureReporter
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -50,11 +52,12 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun checkForUpdates() {
+        if (_uiState.value.isCheckingForUpdate) return
+        _uiState.update { it.copy(isCheckingForUpdate = true, checkError = null) }
         viewModelScope.launch {
-            _uiState.update { it.copy(isCheckingForUpdate = true, checkError = null) }
             try {
                 val release = updateRepository.getLatestRelease()
-                val isNewer = release.versionCode > BuildConfig.VERSION_CODE
+                val isNewer = release.isNewerThan(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
                 _uiState.update {
                     it.copy(
                         isCheckingForUpdate = false,
@@ -64,10 +67,13 @@ class SettingsViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                val failure = failures.report("Check for updates", e)
                 _uiState.update {
                     it.copy(
                         isCheckingForUpdate = false,
-                        checkError = e.localizedMessage ?: "Failed to check for updates"
+                        updateAvailable = false,
+                        remoteRelease = null,
+                        checkError = failure.message
                     )
                 }
             }

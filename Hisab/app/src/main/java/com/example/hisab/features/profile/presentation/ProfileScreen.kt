@@ -48,11 +48,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.LaunchedEffect
+import com.example.hisab.ui.components.LoadFailure
+import com.example.hisab.ui.components.RefreshFailure
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -166,6 +171,14 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val snackbars = remember { SnackbarHostState() }
+    val message = uiState.error ?: uiState.successMessage
+    LaunchedEffect(message) {
+        if (message != null) {
+            snackbars.showSnackbar(message)
+            viewModel.clearMessages()
+        }
+    }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     
@@ -215,6 +228,7 @@ fun ProfileScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbars) },
         topBar = {
             TopAppBar(
                 title = {
@@ -241,6 +255,14 @@ fun ProfileScreen(
             )
         }
     ) { padding ->
+        val failure = uiState.loadFailure
+        if (failure != null && uiState.email.isEmpty()) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                LoadFailure("Couldn't load your profile", failure, viewModel::loadUserProfile,
+                    retryEnabled = !uiState.isLoading)
+            }
+            return@Scaffold
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -249,6 +271,7 @@ fun ProfileScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            if (failure != null) RefreshFailure(failure, viewModel::loadUserProfile, !uiState.isLoading)
             Spacer(modifier = Modifier.height(16.dp))
 
             Box(
@@ -265,8 +288,8 @@ fun ProfileScreen(
                     AsyncImage(
                         model = Constants.profileImageUrl(uiState.profilePicUrl),
                         contentDescription = "Profile Picture",
-                        placeholder = androidx.compose.ui.res.painterResource(id = com.example.hisab.R.drawable.default_profile),
-                        error = androidx.compose.ui.res.painterResource(id = com.example.hisab.R.drawable.default_profile),
+                        placeholder = androidx.compose.ui.res.painterResource(id = com.example.hisab.R.drawable.ic_default_google_avatar),
+                        error = androidx.compose.ui.res.painterResource(id = com.example.hisab.R.drawable.ic_default_google_avatar),
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
@@ -339,6 +362,7 @@ fun ProfileScreen(
 
             Button(
                 onClick = { viewModel.updateProfile() },
+                enabled = !uiState.isLoading && !uiState.isSaving && !uiState.isUploading && uiState.email.isNotEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),

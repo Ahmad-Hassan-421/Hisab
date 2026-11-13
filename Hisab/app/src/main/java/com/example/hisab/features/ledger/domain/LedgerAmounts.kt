@@ -6,13 +6,26 @@ import java.math.RoundingMode
 
 internal object LedgerAmounts {
     private const val SCALE = 3
-    private const val MAX_AMOUNT = 1_000_000_000.0
+    private val maxAmount = BigDecimal("1000000000")
+    const val AMOUNT_ERROR = "Enter a positive amount up to PKR 1 billion with at most three decimal places."
 
     data class SplitShare(val debtorId: String, val amount: Double)
 
     fun isValid(amount: Double): Boolean =
-        amount.isFinite() && amount > 0 && amount <= MAX_AMOUNT &&
-            BigDecimal.valueOf(amount).stripTrailingZeros().scale() <= SCALE
+        amount.isFinite() && isValidDecimal(BigDecimal.valueOf(amount))
+
+    fun parseAmount(text: String): Double? =
+        text.trim().toBigDecimalOrNull()?.takeIf(::isValidDecimal)?.toDouble()
+
+    fun parseRepaymentAmounts(amounts: Map<String, String>): Map<String, Double>? {
+        val parsed = amounts.filterValues { it.isNotBlank() }.mapValues { (_, text) ->
+            parseAmount(text) ?: return null
+        }
+        return parsed.takeIf { it.isNotEmpty() }
+    }
+
+    private fun isValidDecimal(amount: BigDecimal): Boolean =
+        amount.signum() > 0 && amount <= maxAmount && amount.stripTrailingZeros().scale() <= SCALE
 
     fun split(amount: Double, members: Int): List<Double> {
         require(isValid(amount) && members > 0)
@@ -45,18 +58,26 @@ internal object LedgerAmounts {
     }
 
     fun netByMember(entries: List<HisabEntry>): Map<String, Map<String, BigDecimal>> {
-        val pairs = mutableMapOf<String, MutableMap<String, BigDecimal>>()
-        fun add(from: String, to: String, amount: BigDecimal) {
-            val balances = pairs.getOrPut(from) { mutableMapOf() }
+        val balancesByMember = mutableMapOf<String, MutableMap<String, BigDecimal>>()
+        val legacyByMember = mutableMapOf<String, MutableMap<String, BigDecimal>>()
+        fun MutableMap<String, MutableMap<String, BigDecimal>>.add(from: String, to: String, amount: BigDecimal) {
+            val balances = getOrPut(from) { mutableMapOf() }
             balances[to] = balances.getOrDefault(to, BigDecimal.ZERO) + amount
         }
         for (entry in entries) {
             val amount = BigDecimal.valueOf(entry.amount)
-            add(entry.debtorId, entry.creditorId, amount)
-            add(entry.creditorId, entry.debtorId, amount.negate())
+            val balances = if (amount.stripTrailingZeros().scale() > SCALE) legacyByMember else balancesByMember
+            balances.add(entry.debtorId, entry.creditorId, amount)
+            balances.add(entry.creditorId, entry.debtorId, -amount)
         }
-        return pairs.mapValues { (_, balances) ->
-            balances.mapValues { (_, amount) -> amount.setScale(SCALE, RoundingMode.HALF_UP) }
+        // Round each legacy subtotal once so a settled fraction cannot affect later transactions.
+        for ((member, balances) in legacyByMember) {
+            for ((counterparty, amount) in balances) {
+                balancesByMember.add(member, counterparty, amount.setScale(SCALE, RoundingMode.HALF_UP))
+            }
+        }
+        return balancesByMember.mapValues { (_, balances) ->
+            balances.mapValues { (_, amount) -> amount.setScale(SCALE, RoundingMode.UNNECESSARY) }
         }
     }
 }

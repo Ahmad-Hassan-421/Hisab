@@ -24,6 +24,14 @@ class LedgerAmountsTest {
     }
 
     @Test
+    fun settledLegacyFractionsDoNotChangeLaterBalances() {
+        val settled = listOf(entry("a", "b", 1.0025), entry("b", "a", 1.003))
+
+        assertEquals(BigDecimal("1.000"), LedgerAmounts.netByMember(settled + entry("a", "b", 1.0)).getValue("a").getValue("b"))
+        assertEquals(BigDecimal("1.000"), LedgerAmounts.netByMember(settled + entry("b", "a", 1.0)).getValue("b").getValue("a"))
+    }
+
+    @Test
     fun splitDistributesTheRemainderAndPreservesTheTotal() {
         val shares = LedgerAmounts.split(1.0, 3)
 
@@ -36,6 +44,33 @@ class LedgerAmountsTest {
         val entries = listOf(entry("a", "b", 1.0 / 3), entry("b", "a", 0.333))
 
         assertEquals(BigDecimal("0.000"), LedgerAmounts.netByMember(entries).getValue("a").getValue("b"))
+    }
+
+    @Test
+    fun roundedRepaymentSettlesExactHalfThousandthWithoutReversingDebt() {
+        val debt = entry("a", "b", 1.0025)
+        assertEquals(BigDecimal("1.003"), LedgerAmounts.netByMember(listOf(debt)).getValue("a").getValue("b"))
+
+        val balances = LedgerAmounts.netByMember(listOf(debt, entry("b", "a", 1.003)))
+
+        assertEquals(BigDecimal("0.000"), balances.getValue("a").getValue("b"))
+        assertEquals(BigDecimal("0.000"), balances.getValue("b").getValue("a"))
+    }
+
+    @Test
+    fun parsesAmountsBeforeConversionCanHideInvalidPrecisionOrRange() {
+        assertEquals(1.234, LedgerAmounts.parseAmount(" 1.2340 "))
+        assertNull(LedgerAmounts.parseAmount("1.23400000000000000001"))
+        assertNull(LedgerAmounts.parseAmount("1000000000.000000001"))
+        assertNull(LedgerAmounts.parseAmount("NaN"))
+    }
+
+    @Test
+    fun differentRepaymentsSkipBlankFieldsAndRejectInvalidAmountsAsABatch() {
+        assertEquals(mapOf("a" to 1.234), LedgerAmounts.parseRepaymentAmounts(mapOf("a" to "1.234", "b" to " ")))
+        assertNull(LedgerAmounts.parseRepaymentAmounts(mapOf("a" to "1.234", "b" to "typo")))
+        assertNull(LedgerAmounts.parseRepaymentAmounts(mapOf("a" to "1.234", "b" to "-0.5")))
+        assertNull(LedgerAmounts.parseRepaymentAmounts(mapOf("a" to "")))
     }
 
     @Test
@@ -115,6 +150,26 @@ class LedgerAmountsTest {
         val members = listOf("alice", "bob", "charlie")
         val shares = LedgerAmounts.splitExpense(0.002, "alice", members)
         assertNull(shares)
+    }
+
+    @Test
+    fun directDebtIOweHimAccuratelySetsDebtorDebtAndCreditorReceivable() {
+        // User A records "I Owe Him" to User B for 500.0
+        val directDebtEntry = HisabEntry(
+            id = "entry-1",
+            groupId = "group-1",
+            debtorId = "userA",
+            creditorId = "userB",
+            amount = 500.0,
+            description = "Dinner",
+            type = "DIRECT_DEBT"
+        )
+        val balances = LedgerAmounts.netByMember(listOf(directDebtEntry))
+
+        // userA owes userB 500.000
+        assertEquals(BigDecimal("500.000"), balances.getValue("userA").getValue("userB"))
+        // userB is owed 500.000 by userA
+        assertEquals(BigDecimal("-500.000"), balances.getValue("userB").getValue("userA"))
     }
 
     private fun entry(debtor: String, creditor: String, amount: Double) =

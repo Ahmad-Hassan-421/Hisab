@@ -7,6 +7,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.hisab.features.ledger.domain.LedgerAmounts
 import com.example.hisab.features.ledger.presentation.MemberBalanceUI
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -14,6 +15,9 @@ import com.example.hisab.features.ledger.presentation.MemberBalanceUI
 fun AddAmountDialog(
     members: List<MemberBalanceUI>,
     currentUserId: String,
+    isSaving: Boolean,
+    error: String?,
+    onReload: (() -> Unit)?,
     onDismiss: () -> Unit,
     onSplitToAll: (amount: Double, description: String) -> Unit,
     onSpecificPerson: (debtorId: String, amount: Double, description: String) -> Unit
@@ -22,9 +26,11 @@ fun AddAmountDialog(
     var amountText by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedUserId by remember { mutableStateOf("") }
+    val amount = LedgerAmounts.parseAmount(amountText)
+    val invalidAmount = amountText.isNotBlank() && amount == null
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isSaving) onDismiss() },
         title = { Text(if (mode == 0) "Add Amount" else if (mode == 1) "Split to All" else "Specific Person") },
         text = {
             Column {
@@ -42,6 +48,8 @@ fun AddAmountDialog(
                         onValueChange = { amountText = it },
                         label = { Text("Amount") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        isError = invalidAmount,
+                        supportingText = { if (invalidAmount) Text(LedgerAmounts.AMOUNT_ERROR) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -90,28 +98,27 @@ fun AddAmountDialog(
                         }
                     }
                 }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
-            if (mode != 0) {
-                TextButton(onClick = {
-                    val amt = amountText.toDoubleOrNull() ?: 0.0
-                    if (amt > 0) {
-                        if (mode == 1) {
-                            onSplitToAll(amt, description)
-                            onDismiss()
-                        } else if (mode == 2 && selectedUserId.isNotEmpty()) {
-                            onSpecificPerson(selectedUserId, amt, description)
-                            onDismiss()
-                        }
+            if (onReload != null) {
+                TextButton(onClick = onReload) { Text("Reload Hisab") }
+            } else if (mode != 0) {
+                TextButton(
+                    enabled = !isSaving && amount != null && (mode == 1 || members.any { it.user.id == selectedUserId }),
+                    onClick = {
+                        val validAmount = amount ?: return@TextButton
+                        if (mode == 1) onSplitToAll(validAmount, description)
+                        else onSpecificPerson(selectedUserId, validAmount, description)
                     }
-                }) {
+                ) {
                     Text("Submit")
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, enabled = !isSaving) {
                 Text("Cancel")
             }
         }

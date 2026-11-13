@@ -30,7 +30,8 @@ sealed class UpdateDownloadStatus {
 
 @Singleton
 class ApkUpdateManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val failures: FailureReporter
 ) {
     private val tag = "ApkUpdateManager"
     private val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -58,11 +59,7 @@ class ApkUpdateManager @Inject constructor(
     private fun registerReceiverIfNeeded() {
         if (!receiverRegistered) {
             val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(downloadReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
-            } else {
-                context.registerReceiver(downloadReceiver, filter)
-            }
+            ContextCompat.registerReceiver(context, downloadReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
             receiverRegistered = true
         }
     }
@@ -103,8 +100,8 @@ class ApkUpdateManager @Inject constructor(
                 monitorDownloadProgress(downloadId, targetFile)
             }
         } catch (e: Exception) {
-            Log.e(tag, "Failed to start download", e)
-            _status.value = UpdateDownloadStatus.Error(e.localizedMessage ?: "Failed to start download")
+            failures.report("Start update download", e)
+            _status.value = UpdateDownloadStatus.Error("Couldn't start the download. Please try again.")
         }
     }
 
@@ -139,9 +136,7 @@ class ApkUpdateManager @Inject constructor(
                             }
                             DownloadManager.STATUS_FAILED -> {
                                 isRunning = false
-                                val reasonIdx = cursor.getColumnIndex(DownloadManager.COLUMN_REASON)
-                                val reason = if (reasonIdx >= 0) cursor.getInt(reasonIdx) else -1
-                                _status.value = UpdateDownloadStatus.Error("Download failed with code $reason")
+                                    _status.value = UpdateDownloadStatus.Error("Couldn't download the update. Please try again.")
                             }
                         }
                     }
@@ -215,8 +210,8 @@ class ApkUpdateManager @Inject constructor(
             }
             activityContext.startActivity(intent)
         } catch (e: Exception) {
-            Log.e(tag, "Failed to launch package installer", e)
-            _status.value = UpdateDownloadStatus.Error("Installer launch failed: ${e.localizedMessage}")
+            failures.report("Open package installer", e)
+            _status.value = UpdateDownloadStatus.Error("Couldn't open the installer. Please try again.")
         }
     }
 

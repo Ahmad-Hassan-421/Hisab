@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface UserRepository {
     fun getCurrentUser(userId: String): Flow<User?>
-    suspend fun fetchRemoteUser(userId: String): User?
+    suspend fun fetchRemoteUser(userId: String, allowCached: Boolean = true): User?
     suspend fun createUserDocument(user: User)
     suspend fun saveUser(user: User)
     suspend fun updateUser(user: User)

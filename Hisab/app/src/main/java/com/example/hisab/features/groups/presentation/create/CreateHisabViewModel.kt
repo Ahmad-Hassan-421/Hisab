@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.hisab.features.groups.domain.GroupRepository
 import com.example.hisab.util.SessionManager
+import com.example.hisab.util.FailureReporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +23,8 @@ data class CreateHisabUiState(
 @HiltViewModel
 class CreateHisabViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val failures: FailureReporter
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateHisabUiState())
@@ -38,6 +40,7 @@ class CreateHisabViewModel @Inject constructor(
 
     fun createHisab() {
         val state = _uiState.value
+        if (state.isLoading) return
         if (state.hisabName.isBlank()) {
             _uiState.update { it.copy(error = "Please enter a Hisab name") }
             return
@@ -58,10 +61,11 @@ class CreateHisabViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                val failure = failures.report("Create Hisab", e)
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.message ?: "Failed to create Hisab"
+                        error = failure.message
                     )
                 }
             }

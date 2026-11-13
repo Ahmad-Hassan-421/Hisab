@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.hisab.features.groups.domain.HisabGroup
 import com.example.hisab.features.groups.domain.GroupRepository
 import com.example.hisab.util.SessionManager
+import com.example.hisab.util.AppFailure
+import com.example.hisab.util.FailureReporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,17 +23,21 @@ import javax.inject.Inject
 data class DashboardUiState(
     val groups: List<HisabGroup> = emptyList(),
     val isLoading: Boolean = true,
-    val error: String? = null
+    val hasLoaded: Boolean = false,
+    val failure: AppFailure? = null,
+    val actionError: String? = null
 )
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val failures: FailureReporter
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
+    private var refreshJob: Job? = null
 
     init {
         startPollingGroups()
@@ -39,19 +46,12 @@ class DashboardViewModel @Inject constructor(
     private fun startPollingGroups() {
         viewModelScope.launch {
             sessionManager.currentUserId.collectLatest { userId ->
-                if (userId == null) {
-                    _uiState.value = DashboardUiState()
-                    return@collectLatest
-                }
+                refreshJob?.cancel()
+                _uiState.value = DashboardUiState()
+                if (userId == null) return@collectLatest
                 while (isActive) {
-                    try {
-                        val groups = groupRepository.getGroupsForUser(userId)
-                        _uiState.update { it.copy(groups = groups, isLoading = false, error = null) }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        _uiState.update { it.copy(isLoading = false, error = e.localizedMessage) }
-                    }
+                    refreshGroups()
+                    refreshJob?.join()
                     delay(15_000)
                 }
             }
@@ -59,15 +59,21 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun refreshGroups() {
-        viewModelScope.launch {
-            val userId = sessionManager.currentUserId.value
-            if (userId != null) {
-                try {
-                    _uiState.update { it.copy(isLoading = true) }
-                    val groups = groupRepository.getGroupsForUser(userId)
-                    _uiState.update { it.copy(groups = groups, isLoading = false, error = null) }
-                } catch (e: Exception) {
-                    _uiState.update { it.copy(isLoading = false, error = e.localizedMessage) }
+        val userId = sessionManager.currentUserId.value ?: return
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                val groups = groupRepository.getGroupsForUser(userId)
+                if (sessionManager.currentUserId.value == userId) {
+                    _uiState.update { it.copy(groups = groups, isLoading = false, hasLoaded = true, failure = null) }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val failure = failures.report("Load Hisabs", e)
+                if (sessionManager.currentUserId.value == userId) {
+                    _uiState.update { it.copy(isLoading = false, failure = failure) }
                 }
             }
         }
@@ -79,7 +85,8 @@ class DashboardViewModel @Inject constructor(
                 groupRepository.deleteGroup(groupId)
                 refreshGroups()
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = "Failed to delete group") }
+                val failure = failures.report("Delete Hisab", e)
+                _uiState.update { it.copy(actionError = failure.message) }
             }
         }
     }

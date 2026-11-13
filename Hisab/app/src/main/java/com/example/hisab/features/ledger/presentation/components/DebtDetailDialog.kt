@@ -18,6 +18,7 @@ fun DebtDetailDialog(
     currentUserOwesOther: Boolean,
     otherUserName: String,
     entries: List<HisabEntry>,
+    currentUserId: String = "",
     onDismiss: () -> Unit
 ) {
     val formatter = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
@@ -41,6 +42,48 @@ fun DebtDetailDialog(
                                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
+                                    val typeLabel = when (entry.type) {
+                                        "DIRECT_DEBT" -> "Direct Debt (I Owe)"
+                                        "REPAYMENT" -> "Repayment"
+                                        else -> "Expense"
+                                    }
+                                    val direction = when {
+                                        currentUserId.isEmpty() -> null
+                                        entry.type == "REPAYMENT" -> {
+                                            if (entry.creditorId == currentUserId) "You paid $otherUserName" else "$otherUserName paid you"
+                                        }
+                                        entry.debtorId == currentUserId -> "You owe $otherUserName"
+                                        else -> "$otherUserName owes you"
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                    ) {
+                                        if (direction != null) {
+                                            Text(
+                                                direction,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 13.sp,
+                                                color = if (entry.debtorId == currentUserId) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                            )
+                                        } else {
+                                            Spacer(modifier = Modifier.width(1.dp))
+                                        }
+                                        Surface(
+                                            shape = MaterialTheme.shapes.extraSmall,
+                                            color = MaterialTheme.colorScheme.secondaryContainer
+                                        ) {
+                                            Text(
+                                                typeLabel,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     val amountStr = String.format("PKR %.3f", entry.amount)
                                     Text("Amount: $amountStr", fontWeight = FontWeight.Bold)
                                     Text("Description: ${entry.description.ifEmpty { "None" }}")

@@ -1,5 +1,9 @@
 package com.example.hisab.features.ledger.presentation
 
+import com.example.hisab.ui.components.LoadFailure
+import com.example.hisab.ui.components.RefreshFailure
+import androidx.compose.ui.Alignment
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,9 +21,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.hisab.features.ledger.presentation.components.AddAmountDialog
+import com.example.hisab.features.ledger.presentation.components.IOweHimDialog
 import com.example.hisab.features.ledger.presentation.components.MemberBalanceCard
 import com.example.hisab.features.ledger.presentation.components.RepaymentDialog
 import com.example.hisab.features.ledger.presentation.GroupDetailViewModel
+import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,6 +42,7 @@ fun GroupDetailScreen(
     
     var showAddAmountDialog by remember { mutableStateOf(false) }
     var showRepaymentDialog by remember { mutableStateOf(false) }
+    var showIOweHimDialog by remember { mutableStateOf(false) }
     
     val snackbarHostState = remember { SnackbarHostState() }
     
@@ -114,40 +121,64 @@ fun GroupDetailScreen(
         AddAmountDialog(
             members = activeMembers,
             currentUserId = uiState.currentUserId,
+            isSaving = uiState.isUpdatingLedger,
+            error = uiState.ledgerFormError,
+            onReload = if (uiState.ledgerNeedsRefresh) viewModel::loadData else null,
             onDismiss = { showAddAmountDialog = false },
             onSplitToAll = { amount, desc ->
-                viewModel.addAmountSplit(amount, desc)
+                viewModel.addAmountSplit(amount, desc) { showAddAmountDialog = false }
             },
             onSpecificPerson = { debtorId, amount, desc ->
-                viewModel.addAmountSpecific(debtorId, amount, desc)
+                viewModel.addAmountSpecific(debtorId, amount, desc) { showAddAmountDialog = false }
+            }
+        )
+    }
+
+    if (showIOweHimDialog) {
+        IOweHimDialog(
+            members = activeMembers,
+            currentUserId = uiState.currentUserId,
+            isLoading = uiState.isUpdatingLedger,
+            error = uiState.ledgerFormError,
+            onReload = if (uiState.ledgerNeedsRefresh) viewModel::loadData else null,
+            onDismiss = { showIOweHimDialog = false },
+            onSubmit = { creditorId, amount, desc ->
+                viewModel.addDirectDebt(creditorId, amount, desc) { showIOweHimDialog = false }
             }
         )
     }
 
     if (showRepaymentDialog) {
-        val debtorIds = uiState.members.firstOrNull { it.user.id == uiState.currentUserId }
-            ?.receiveBreakdown.orEmpty().map { it.userId }.filter { it in activeIds }.toSet()
-        if (debtorIds.isEmpty()) {
+        val myBalance = uiState.members.firstOrNull { it.user.id == uiState.currentUserId }
+        val debtorIds = myBalance?.receiveBreakdown.orEmpty().map { it.userId }.toSet()
+        val creditorIds = myBalance?.debtBreakdown.orEmpty().map { it.userId }.toSet()
+        if (debtorIds.isEmpty() && creditorIds.isEmpty()) {
             AlertDialog(
                 onDismissRequest = { showRepaymentDialog = false },
-                title = { Text("No Receive Amount") },
-                text = { Text("You don't have any outstanding amounts to receive from others.") },
+                title = { Text("No Outstanding Balance") },
+                text = { Text("You have no outstanding debts or payments to receive.") },
                 confirmButton = { TextButton(onClick = { showRepaymentDialog = false }) { Text("OK") } }
             )
         } else {
             RepaymentDialog(
-                members = activeMembers.filter { it.user.id in debtorIds },
-                currentUserId = uiState.currentUserId,
+                debtors = uiState.members.filter { it.user.id in debtorIds },
+                creditors = uiState.members.filter { it.user.id in creditorIds },
+                isSaving = uiState.isUpdatingLedger,
+                error = uiState.ledgerFormError,
+                onReload = if (uiState.ledgerNeedsRefresh) viewModel::loadData else null,
                 onDismiss = { showRepaymentDialog = false },
                 onEveryonePaidSame = { amount ->
                     val amounts = debtorIds.associateWith { amount }
-                    viewModel.recordRepayments(uiState.currentUserId, amounts, "Repayment")
+                    viewModel.recordRepayments(uiState.currentUserId, amounts, "Repayment") { showRepaymentDialog = false }
                 },
                 onEveryonePaidDifferent = { amounts ->
-                    viewModel.recordRepayments(uiState.currentUserId, amounts, "Repayment")
+                    viewModel.recordRepayments(uiState.currentUserId, amounts, "Repayment") { showRepaymentDialog = false }
                 },
                 onSomeonePaid = { debtorId, amount ->
-                    viewModel.someonePaid(debtorId, uiState.currentUserId, amount, "Repayment")
+                    viewModel.someonePaid(debtorId, uiState.currentUserId, amount, "Repayment") { showRepaymentDialog = false }
+                },
+                onIPaidSomeone = { creditorId, amount ->
+                    viewModel.someonePaid(uiState.currentUserId, creditorId, amount, "Repayment") { showRepaymentDialog = false }
                 }
             )
         }
@@ -185,8 +216,11 @@ fun GroupDetailScreen(
             title = { Text("Hisab is Done!") },
             text = { Text("Everyone is at 0 debt and 0 will receive. Do you want to clear the previous records to save storage?") },
             confirmButton = {
-                TextButton(onClick = { viewModel.clearRecords() }, enabled = !uiState.isUpdatingLedger) {
-                    Text("Delete Records", color = MaterialTheme.colorScheme.error)
+                TextButton(
+                    onClick = { if (uiState.ledgerNeedsRefresh) viewModel.loadData() else viewModel.clearRecords() },
+                    enabled = !uiState.isUpdatingLedger && !uiState.isLoading
+                ) {
+                    Text(if (uiState.ledgerNeedsRefresh) "Reload Hisab" else "Delete Records", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
@@ -251,6 +285,7 @@ fun GroupDetailScreen(
                     ?.debtBreakdown.orEmpty().any { it.userId == userId },
                 otherUserName = userName,
                 entries = entries,
+                currentUserId = uiState.currentUserId,
                 onDismiss = { detailDialogUser = null }
             )
         }
@@ -261,33 +296,144 @@ fun GroupDetailScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Button(onClick = { showAddAmountDialog = true }, modifier = Modifier.weight(1f),
-                    enabled = !uiState.isUpdatingLedger && uiState.group != null) {
-                    Text("Add Amount")
+            val failure = uiState.loadFailure
+            if (failure != null && uiState.group != null) {
+                RefreshFailure(failure, viewModel::loadData, !uiState.isLoading)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        viewModel.clearLedgerFormError()
+                        showAddAmountDialog = true
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isUpdatingLedger && uiState.group != null,
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        "Add Amount",
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelMedium
+                    )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = { showRepaymentDialog = true }, modifier = Modifier.weight(1f),
-                    enabled = !uiState.isUpdatingLedger && uiState.group != null) {
-                    Text("Someone Paid")
+                Button(
+                    onClick = {
+                        viewModel.clearLedgerFormError()
+                        showRepaymentDialog = true
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isUpdatingLedger && uiState.group != null,
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        "Repayment",
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+                Button(
+                    onClick = {
+                        viewModel.clearLedgerFormError()
+                        showIOweHimDialog = true
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isUpdatingLedger && uiState.group != null,
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        "I Owe Him",
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelMedium
+                    )
                 }
             }
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            Text("Members & Balances", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            if (uiState.isLoading) {
-                CircularProgressIndicator()
-            } else {
-                LazyColumn {
-                    items(uiState.members) { member ->
-                        MemberBalanceCard(
-                            balance = member,
-                            onToggleExpand = { viewModel.toggleMemberExpanded(member.user.id) },
-                            onShowDetails = { id, name -> detailDialogUser = Pair(id, name) }
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                tonalElevation = 1.dp
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Members & Balances",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
+                        Surface(
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = "${activeMembers.size}",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (uiState.group == null && failure != null) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            LoadFailure("Couldn't load this Hisab", failure, viewModel::loadData,
+                                retryEnabled = !uiState.isLoading)
+                        }
+                    } else if (uiState.isLoading && uiState.members.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = androidx.compose.ui.Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    } else if (uiState.members.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = androidx.compose.ui.Alignment.Center
+                        ) {
+                            Text(
+                                "No members in this group",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(uiState.members) { member ->
+                                MemberBalanceCard(
+                                    balance = member,
+                                    onToggleExpand = { viewModel.toggleMemberExpanded(member.user.id) },
+                                    onShowDetails = { id, name -> detailDialogUser = Pair(id, name) }
+                                )
+                            }
+                        }
                     }
                 }
             }

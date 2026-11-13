@@ -8,6 +8,9 @@ import com.example.hisab.features.auth.data.AuthResponse
 import com.example.hisab.features.auth.data.LoginRequest
 import com.example.hisab.features.auth.data.RegisterRequest
 import com.example.hisab.features.profile.domain.UserRepository
+import com.example.hisab.util.Constants
+import com.example.hisab.util.AppFailure
+import com.example.hisab.util.FailureReporter
 import com.example.hisab.util.SessionManager
 import com.example.hisab.util.TokenManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +18,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -36,7 +40,8 @@ class AuthViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val sessionManager: SessionManager,
     private val tokenManager: TokenManager,
-    private val apiService: HisabApiService
+    private val apiService: HisabApiService,
+    private val failures: FailureReporter
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -50,10 +55,17 @@ class AuthViewModel @Inject constructor(
         val savedUserId = tokenManager.getUserId()
         if (savedUserId != null) {
             viewModelScope.launch {
-                val user = userRepository.fetchRemoteUser(savedUserId)
+                val localUser = userRepository.getCurrentUser(savedUserId).first()
                 val restored = tokenManager.getUserId() == savedUserId
-                if (restored) sessionManager.setSession(savedUserId, user?.role ?: "user")
+                if (restored) sessionManager.setSession(savedUserId, localUser?.role ?: "user")
                 _uiState.update { it.copy(isSignedIn = restored, isLoading = false) }
+
+                try {
+                    val remoteUser = userRepository.fetchRemoteUser(savedUserId)
+                    if (restored && remoteUser != null) {
+                        sessionManager.setSession(savedUserId, remoteUser.role)
+                    }
+                } catch (_: Exception) {}
             }
         } else {
             sessionManager.clear()
@@ -120,9 +132,10 @@ class AuthViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                val msg = e.localizedMessage ?: "Unknown error"
+                val failure = failures.report("Sign in", e)
+                val message = if (failure == AppFailure.SESSION_EXPIRED) "The email or password is incorrect." else failure.message
                 _uiState.update {
-                    it.copy(isLoading = false, error = "Login failed: $msg")
+                    it.copy(isLoading = false, error = message)
                 }
             }
         }
@@ -166,8 +179,8 @@ class AuthViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                val msg = e.message ?: ""
-                val userFriendlyMsg = if (msg.contains("409")) "An account with this email already exists" else "Registration failed: ${e.localizedMessage}"
+                val failure = failures.report("Create account", e)
+                val userFriendlyMsg = if (failure == AppFailure.CONFLICT) "An account with this email already exists." else failure.message
                 _uiState.update {
                     it.copy(isLoading = false, error = userFriendlyMsg)
                 }
@@ -177,11 +190,17 @@ class AuthViewModel @Inject constructor(
 
     private suspend fun establishSession(response: AuthResponse) {
         val dto = response.user
+        val rawPic = dto.profilePicUrl
+        val finalPic = if (rawPic.isNullOrBlank() || rawPic.endsWith("default_profile.png")) {
+            Constants.DEFAULT_GOOGLE_AVATAR_URL
+        } else {
+            rawPic
+        }
         val user = User(
             id = dto.id,
             name = dto.name,
             email = dto.email,
-            profilePicUrl = dto.profilePicUrl.orEmpty(),
+            profilePicUrl = finalPic,
             themePreference = dto.themePreference ?: "system",
             role = dto.role ?: "user",
             uniqueId = dto.uniqueId.orEmpty(),
