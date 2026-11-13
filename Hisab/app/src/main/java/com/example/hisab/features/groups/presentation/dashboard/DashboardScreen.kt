@@ -2,6 +2,8 @@ package com.example.hisab.features.groups.presentation.dashboard
 
 import com.example.hisab.ui.components.LoadFailure
 import com.example.hisab.ui.components.ListSkeleton
+import com.example.hisab.ui.components.FeedbackEffect
+import com.example.hisab.ui.components.FeedbackKind
 import com.example.hisab.ui.components.RefreshFailure
 
 import androidx.compose.foundation.clickable
@@ -62,6 +64,7 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    FeedbackEffect(uiState.actionError, FeedbackKind.ERROR, viewModel::clearActionError)
     
     val pendingRequestCount = 0
 
@@ -136,7 +139,6 @@ fun DashboardScreen(
             } else {
                 Column(modifier = Modifier.fillMaxSize()) {
                     if (failure != null) RefreshFailure(failure, viewModel::refreshGroups, !uiState.isLoading)
-                    uiState.actionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     if (uiState.groups.isEmpty()) {
                         Column(
                             modifier = Modifier.fillMaxSize(),

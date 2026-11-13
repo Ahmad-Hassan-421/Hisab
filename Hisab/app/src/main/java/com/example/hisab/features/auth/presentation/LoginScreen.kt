@@ -28,8 +28,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -55,6 +53,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.hisab.ui.components.DynamicLogo
 import com.example.hisab.ui.components.ActionLabel
+import com.example.hisab.ui.components.FeedbackKind
+import com.example.hisab.ui.components.LocalHisabFeedback
 import com.example.hisab.util.AppFailure
 import com.example.hisab.features.auth.presentation.AuthViewModel
 
@@ -65,32 +65,19 @@ fun LoginScreen(
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val feedback = LocalHisabFeedback.current
     val focusManager = LocalFocusManager.current
     var passwordVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.isSignedIn) {
         if (uiState.isSignedIn) {
+            uiState.successMessage?.let { feedback?.post?.invoke(it, FeedbackKind.SUCCESS) }
+            viewModel.clearSuccess()
             onNavigateToDashboard()
         }
     }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let { error ->
-            snackbarHostState.showSnackbar(error)
-            viewModel.clearError()
-        }
-    }
-
-    LaunchedEffect(uiState.successMessage) {
-        uiState.successMessage?.let { message ->
-            snackbarHostState.showSnackbar(message)
-            viewModel.clearSuccess()
-        }
-    }
-
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
@@ -219,6 +206,10 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            uiState.error?.let {
+                Text(it, color = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(8.dp))
+            }
             Button(
                 onClick = {
                     focusManager.clearFocus()

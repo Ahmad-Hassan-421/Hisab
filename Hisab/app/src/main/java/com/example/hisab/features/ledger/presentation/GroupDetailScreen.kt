@@ -5,6 +5,9 @@ import com.example.hisab.ui.components.ActionLabel
 import com.example.hisab.ui.components.ListSkeleton
 import com.example.hisab.ui.components.AlertKind
 import com.example.hisab.ui.components.HisabAlert
+import com.example.hisab.ui.components.FeedbackEffect
+import com.example.hisab.ui.components.FeedbackKind
+import com.example.hisab.ui.components.LocalHisabFeedback
 import com.example.hisab.ui.components.RefreshFailure
 import androidx.compose.ui.Alignment
 
@@ -48,23 +51,21 @@ fun GroupDetailScreen(
     var showRepaymentDialog by remember { mutableStateOf(false) }
     var showIOweHimDialog by remember { mutableStateOf(false) }
     
-    val snackbarHostState = remember { SnackbarHostState() }
+    val feedback = LocalHisabFeedback.current
     
     LaunchedEffect(uiState.requestSuccessMessage) {
-        uiState.requestSuccessMessage?.let { msg ->
-            snackbarHostState.showSnackbar(msg)
+        if (uiState.requestSuccessMessage != null) {
             showInviteDialog = false
             inviteUniqueId = ""
-            viewModel.clearMessages()
         }
     }
-    
-    LaunchedEffect(uiState.requestError) {
-        uiState.requestError?.let { msg ->
-            snackbarHostState.showSnackbar(msg)
-            viewModel.clearMessages()
-        }
-    }
+    FeedbackEffect(uiState.requestSuccessMessage, FeedbackKind.SUCCESS, viewModel::clearMessages)
+    FeedbackEffect(uiState.requestError, FeedbackKind.ERROR, viewModel::clearMessages)
+    FeedbackEffect(
+        "Settled records cleared.".takeIf { uiState.recordsCleared },
+        FeedbackKind.SUCCESS,
+        viewModel::acknowledgeRecordsCleared
+    )
 
     if (showInviteDialog) {
         AlertDialog(
@@ -130,10 +131,16 @@ fun GroupDetailScreen(
             onReload = if (uiState.ledgerNeedsRefresh) viewModel::loadData else null,
             onDismiss = { showAddAmountDialog = false },
             onSplitToAll = { amount, desc ->
-                viewModel.addAmountSplit(amount, desc) { showAddAmountDialog = false }
+                viewModel.addAmountSplit(amount, desc) {
+                    showAddAmountDialog = false
+                    feedback?.post?.invoke("Shared expense recorded.", FeedbackKind.SUCCESS)
+                }
             },
             onSpecificPerson = { debtorId, amount, desc ->
-                viewModel.addAmountSpecific(debtorId, amount, desc) { showAddAmountDialog = false }
+                viewModel.addAmountSpecific(debtorId, amount, desc) {
+                    showAddAmountDialog = false
+                    feedback?.post?.invoke("Expense recorded.", FeedbackKind.SUCCESS)
+                }
             }
         )
     }
@@ -147,12 +154,19 @@ fun GroupDetailScreen(
             onReload = if (uiState.ledgerNeedsRefresh) viewModel::loadData else null,
             onDismiss = { showIOweHimDialog = false },
             onSubmit = { creditorId, amount, desc ->
-                viewModel.addDirectDebt(creditorId, amount, desc) { showIOweHimDialog = false }
+                viewModel.addDirectDebt(creditorId, amount, desc) {
+                    showIOweHimDialog = false
+                    feedback?.post?.invoke("Debt recorded.", FeedbackKind.SUCCESS)
+                }
             }
         )
     }
 
     if (showRepaymentDialog) {
+        val onRepaymentSaved: () -> Unit = {
+            showRepaymentDialog = false
+            feedback?.post?.invoke("Repayment recorded.", FeedbackKind.SUCCESS)
+        }
         val myBalance = uiState.members.firstOrNull { it.user.id == uiState.currentUserId }
         val debtorIds = myBalance?.receiveBreakdown.orEmpty().map { it.userId }.toSet()
         val creditorIds = myBalance?.debtBreakdown.orEmpty().map { it.userId }.toSet()
@@ -175,16 +189,16 @@ fun GroupDetailScreen(
                 onDismiss = { showRepaymentDialog = false },
                 onEveryonePaidSame = { amount ->
                     val amounts = debtorIds.associateWith { amount }
-                    viewModel.recordRepayments(uiState.currentUserId, amounts, "Repayment") { showRepaymentDialog = false }
+                    viewModel.recordRepayments(uiState.currentUserId, amounts, "Repayment", onRepaymentSaved)
                 },
                 onEveryonePaidDifferent = { amounts ->
-                    viewModel.recordRepayments(uiState.currentUserId, amounts, "Repayment") { showRepaymentDialog = false }
+                    viewModel.recordRepayments(uiState.currentUserId, amounts, "Repayment", onRepaymentSaved)
                 },
                 onSomeonePaid = { debtorId, amount ->
-                    viewModel.someonePaid(debtorId, uiState.currentUserId, amount, "Repayment") { showRepaymentDialog = false }
+                    viewModel.someonePaid(debtorId, uiState.currentUserId, amount, "Repayment", onRepaymentSaved)
                 },
                 onIPaidSomeone = { creditorId, amount ->
-                    viewModel.someonePaid(uiState.currentUserId, creditorId, amount, "Repayment") { showRepaymentDialog = false }
+                    viewModel.someonePaid(uiState.currentUserId, creditorId, amount, "Repayment", onRepaymentSaved)
                 }
             )
         }
@@ -207,6 +221,7 @@ fun GroupDetailScreen(
             onConfirm = {
                 viewModel.leaveGroup {
                     showLeaveDialog = false
+                    feedback?.post?.invoke("You left the Hisab.", FeedbackKind.INFO)
                     onNavigateBack()
                 }
             }
@@ -229,7 +244,6 @@ fun GroupDetailScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(uiState.group?.name ?: "Group Details") },

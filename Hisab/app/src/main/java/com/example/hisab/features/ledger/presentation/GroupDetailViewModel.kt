@@ -63,7 +63,8 @@ data class GroupDetailUiState(
     val isLeaving: Boolean = false,
     val leaveError: String? = null,
     val requestError: String? = null,
-    val requestSuccessMessage: String? = null
+    val requestSuccessMessage: String? = null,
+    val recordsCleared: Boolean = false
 )
 
 @HiltViewModel
@@ -311,6 +312,8 @@ class GroupDetailViewModel @Inject constructor(
     fun clearMessages() {
         _uiState.update { it.copy(requestError = null, requestSuccessMessage = null) }
     }
+
+    fun acknowledgeRecordsCleared() = _uiState.update { it.copy(recordsCleared = false) }
     
     fun leaveGroup(onComplete: () -> Unit) {
         if (_uiState.value.isLeaving) return
@@ -339,7 +342,7 @@ class GroupDetailViewModel @Inject constructor(
         if (!_uiState.value.showClearRecordsDialog) return
         updateLedger {
             hisabRepository.clearGroupEntries(groupId)
-            _uiState.update { it.copy(showClearRecordsDialog = false) }
+            _uiState.update { it.copy(showClearRecordsDialog = false, recordsCleared = true) }
         }
     }
 

@@ -90,4 +90,6 @@ class DashboardViewModel @Inject constructor(
             }
         }
     }
+
+    fun clearActionError() = _uiState.update { it.copy(actionError = null) }
 }

@@ -30,6 +30,8 @@ import com.example.hisab.features.invitations.domain.HisabRequest
 import com.example.hisab.util.Constants
 import com.example.hisab.ui.components.LoadFailure
 import com.example.hisab.ui.components.ListSkeleton
+import com.example.hisab.ui.components.FeedbackEffect
+import com.example.hisab.ui.components.FeedbackKind
 import com.example.hisab.ui.components.RefreshFailure
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,16 +41,9 @@ fun NotificationsScreen(
     viewModel: NotificationsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val snackbars = remember { SnackbarHostState() }
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            snackbars.showSnackbar(it)
-            viewModel.clearActionError()
-        }
-    }
+    FeedbackEffect(uiState.error, FeedbackKind.ERROR, viewModel::clearActionError)
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbars) },
         topBar = {
             TopAppBar(
                 title = { Text("Invitations & Requests", fontWeight = FontWeight.Bold) },

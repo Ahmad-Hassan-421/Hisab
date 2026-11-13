@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,6 +40,10 @@ import com.example.hisab.features.groups.presentation.dashboard.DashboardScreen
 import com.example.hisab.features.profile.presentation.ProfileScreen
 import com.example.hisab.features.settings.presentation.SettingsScreen
 import com.example.hisab.ui.theme.HisabTheme
+import com.example.hisab.ui.components.FeedbackKind
+import com.example.hisab.ui.components.HisabFeedbackHost
+import com.example.hisab.ui.components.LocalHisabFeedback
+import com.example.hisab.ui.components.rememberHisabFeedback
 import com.example.hisab.features.auth.presentation.SessionViewModel
 import com.example.hisab.util.SPLASH_PREFS_NAME
 import com.example.hisab.util.SPLASH_THEME_KEY
@@ -110,6 +116,9 @@ fun HisabNavHost(startDest: String) {
         }
     }
 
+    val feedback = rememberHisabFeedback()
+    CompositionLocalProvider(LocalHisabFeedback provides feedback) {
+    Box(Modifier.fillMaxSize()) {
     NavHost(
         navController = navController,
         startDestination = startDest
@@ -174,6 +183,7 @@ fun HisabNavHost(startDest: String) {
                     navController.popBackStack()
                 },
                 onGroupCreated = { groupId ->
+                    feedback.post("Hisab created.", FeedbackKind.SUCCESS)
                     navController.popBackStack()
                     navController.navigate("group_detail/$groupId")
                 }
@@ -214,6 +224,9 @@ fun HisabNavHost(startDest: String) {
                 }
             )
         }
+    }
+    HisabFeedbackHost(feedback.state, Modifier.align(Alignment.BottomCenter))
+    }
     }
 }
 

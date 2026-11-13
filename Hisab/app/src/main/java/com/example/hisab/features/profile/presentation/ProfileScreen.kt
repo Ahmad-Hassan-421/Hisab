@@ -46,18 +46,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.LaunchedEffect
 import com.example.hisab.ui.components.LoadFailure
 import com.example.hisab.ui.components.ActionLabel
 import com.example.hisab.ui.components.AlertKind
 import com.example.hisab.ui.components.HisabAlert
+import com.example.hisab.ui.components.FeedbackEffect
+import com.example.hisab.ui.components.FeedbackKind
 import com.example.hisab.ui.components.ProfileSkeleton
 import com.example.hisab.ui.components.RefreshFailure
 import androidx.compose.runtime.Composable
@@ -173,14 +172,8 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val snackbars = remember { SnackbarHostState() }
-    val message = uiState.error ?: uiState.successMessage
-    LaunchedEffect(message) {
-        if (message != null) {
-            snackbars.showSnackbar(message)
-            viewModel.clearMessages()
-        }
-    }
+    FeedbackEffect(uiState.error, FeedbackKind.ERROR, viewModel::clearMessages)
+    FeedbackEffect(uiState.successMessage, FeedbackKind.SUCCESS, viewModel::clearMessages)
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     
@@ -222,7 +215,6 @@ fun ProfileScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbars) },
         topBar = {
             TopAppBar(
                 title = {
