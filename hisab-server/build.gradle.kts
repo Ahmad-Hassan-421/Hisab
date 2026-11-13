@@ -61,10 +61,11 @@ dependencies {
     // Passwords & Crypto
     implementation("at.favre.lib:bcrypt:0.10.2")
     
-    // HTTP Client (for Brevo API)
+    // HTTP Client (for GitHub API & Brevo API)
     implementation("io.ktor:ktor-client-core:$ktor_version")
     implementation("io.ktor:ktor-client-cio:$ktor_version")
     implementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
     
     // Logging
     implementation("ch.qos.logback:logback-classic:$logback_version")

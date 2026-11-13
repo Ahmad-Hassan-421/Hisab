@@ -26,10 +26,13 @@ class ApiRequestRepository @Inject constructor(
         id = id,
         senderId = senderId,
         senderName = senderName,
-        senderProfilePicUrl = senderProfilePicUrl.orEmpty(),
+        senderEmail = senderEmail.orEmpty(),
+        senderProfilePicUrl = profilePictureUrl ?: senderProfilePicUrl.orEmpty(),
+        profilePictureUrl = profilePictureUrl ?: senderProfilePicUrl,
         receiverId = receiverId,
         groupId = groupId,
         groupName = groupName,
-        status = status ?: defaultStatus
+        status = status ?: defaultStatus,
+        createdAt = createdAt
     )
 }

@@ -36,6 +36,7 @@ import com.example.hisab.features.auth.presentation.LoginScreen
 import com.example.hisab.features.groups.presentation.create.CreateHisabScreen
 import com.example.hisab.features.groups.presentation.dashboard.DashboardScreen
 import com.example.hisab.features.profile.presentation.ProfileScreen
+import com.example.hisab.features.settings.presentation.SettingsScreen
 import com.example.hisab.ui.theme.HisabTheme
 import com.example.hisab.features.auth.presentation.SessionViewModel
 import com.example.hisab.util.SPLASH_PREFS_NAME
@@ -129,6 +130,9 @@ fun HisabNavHost(startDest: String) {
                 onNavigateToProfile = {
                     navController.navigate("profile")
                 },
+                onNavigateToSettings = {
+                    navController.navigate("settings")
+                },
                 onNavigateToNotifications = {
                     navController.navigate("notifications")
                 },
@@ -190,11 +194,22 @@ fun HisabNavHost(startDest: String) {
                 onNavigateBack = {
                     navController.popBackStack()
                 },
+                onNavigateToSettings = {
+                    navController.navigate("settings")
+                },
                 onLoggedOut = {
                     navController.navigate("login") {
                         popUpTo(navController.graph.id) { inclusive = true }
                         launchSingleTop = true
                     }
+                }
+            )
+        }
+
+        composable("settings") {
+            SettingsScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

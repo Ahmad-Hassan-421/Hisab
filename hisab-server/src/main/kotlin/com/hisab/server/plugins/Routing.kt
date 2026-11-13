@@ -8,6 +8,7 @@ import com.hisab.server.features.ledger.hisabEntryRoutes
 import com.hisab.server.features.invitations.requestRoutes
 import com.hisab.server.features.media.storageRoutes
 import com.hisab.server.features.realtime.webSocketRoutes
+import com.hisab.server.features.releases.releaseRoutes
 import com.mongodb.MongoException
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -34,6 +35,7 @@ fun Application.configureRouting(uploadDirectory: File) {
         requestRoutes()
         storageRoutes(uploadDirectory)
         webSocketRoutes()
+        releaseRoutes()
         
         staticFiles("/static/uploads", uploadDirectory)
         staticResources("/static", "static")

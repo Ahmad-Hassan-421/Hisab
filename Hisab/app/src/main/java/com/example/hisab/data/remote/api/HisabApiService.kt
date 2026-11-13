@@ -5,6 +5,7 @@ import com.example.hisab.features.ledger.data.*
 import com.example.hisab.features.invitations.data.*
 import com.example.hisab.features.profile.data.*
 import com.example.hisab.features.auth.data.*
+import com.example.hisab.features.settings.data.AppUpdateResponse
 import okhttp3.MultipartBody
 import retrofit2.http.*
 
@@ -65,4 +66,7 @@ interface HisabApiService {
     suspend fun uploadProfilePic(
         @Part image: MultipartBody.Part
     ): UploadResponse
+
+    @GET("api/releases/latest")
+    suspend fun getLatestRelease(): AppUpdateResponse
 }

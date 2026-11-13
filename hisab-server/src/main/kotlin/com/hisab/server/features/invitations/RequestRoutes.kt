@@ -18,14 +18,32 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.litote.kmongo.and
 import org.litote.kmongo.eq
 
 @Serializable data class SendRequestRequest(val receiverUniqueId: String, val groupId: String)
 @Serializable data class UpdateRequestRequest(val status: String)
 
-private fun HisabRequestDocument.toResponse() =
-    copy(senderProfilePicUrl = ProfileImages.publicUrl(senderProfilePicUrl))
+@Serializable
+data class InviteNotificationPayload(
+    val requestId: String,
+    val senderId: String,
+    val senderName: String,
+    val senderEmail: String,
+    val profilePictureUrl: String?,
+    val groupId: String,
+    val groupName: String
+)
+
+private fun HisabRequestDocument.toResponse(): HisabRequestDocument {
+    val pic = ProfileImages.publicUrl(profilePictureUrl ?: senderProfilePicUrl)
+    return copy(
+        senderProfilePicUrl = pic,
+        profilePictureUrl = pic
+    )
+}
 
 fun Route.requestRoutes() {
     authenticate("auth-jwt") {
@@ -71,10 +89,13 @@ fun Route.requestRoutes() {
                         HisabRequestDocument::status eq "pending"
                     ))
                     if (pending != null) return@transaction pending to false
+                    val storedPic = ProfileImages.storedPath(sender.profilePicUrl)
                     val invitation = HisabRequestDocument(
                         senderId = sender.id,
                         senderName = sender.name,
-                        senderProfilePicUrl = ProfileImages.storedPath(sender.profilePicUrl),
+                        senderEmail = sender.email,
+                        senderProfilePicUrl = storedPic,
+                        profilePictureUrl = storedPic,
                         receiverId = receiver.id,
                         groupId = group.id,
                         groupName = group.name
@@ -82,7 +103,20 @@ fun Route.requestRoutes() {
                     requests.insertOne(session, invitation)
                     invitation to true
                 }
-                if (created) WebSocketManager.notifyUser(receiver.id, "NEW_REQUEST")
+                if (created) {
+                    val payload = Json.encodeToString(
+                        InviteNotificationPayload(
+                            requestId = request.id,
+                            senderId = request.senderId,
+                            senderName = request.senderName,
+                            senderEmail = request.senderEmail,
+                            profilePictureUrl = ProfileImages.publicUrl(request.profilePictureUrl ?: request.senderProfilePicUrl),
+                            groupId = request.groupId,
+                            groupName = request.groupName
+                        )
+                    )
+                    WebSocketManager.notifyUser(receiver.id, "NEW_REQUEST", payload)
+                }
                 
                 call.respond(HttpStatusCode.Created, request.toResponse())
             }

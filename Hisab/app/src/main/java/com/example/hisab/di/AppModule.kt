@@ -16,6 +16,8 @@ import com.example.hisab.features.groups.domain.GroupRepository
 import com.example.hisab.features.ledger.domain.HisabRepository
 import com.example.hisab.features.invitations.domain.RequestRepository
 import com.example.hisab.features.profile.domain.UserRepository
+import com.example.hisab.features.settings.data.ApiUpdateRepository
+import com.example.hisab.features.settings.domain.UpdateRepository
 import com.example.hisab.util.Constants
 import com.example.hisab.util.TokenManager
 import dagger.Binds
@@ -107,4 +109,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindRequestRepository(impl: ApiRequestRepository): RequestRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindUpdateRepository(impl: ApiUpdateRepository): UpdateRepository
 }
