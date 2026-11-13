@@ -81,6 +81,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun startUpdateDownload() {
+        if (!_uiState.value.updateAvailable || downloadStatus.value is UpdateDownloadStatus.Downloading) return
         val release = _uiState.value.remoteRelease ?: return
         apkUpdateManager.startDownload(release.downloadUrl, release.versionName)
     }

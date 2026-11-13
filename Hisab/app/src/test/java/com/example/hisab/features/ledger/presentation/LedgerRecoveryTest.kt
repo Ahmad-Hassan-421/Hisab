@@ -30,6 +30,43 @@ import java.net.SocketTimeoutException
 @OptIn(ExperimentalCoroutinesApi::class)
 class LedgerRecoveryTest {
     @Test
+    fun settledHistoryIsClearedOnlyAfterConfirmationAndFailureKeepsTheDialogOpen() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val session = SessionManager().apply { setSession("member", "user") }
+        val ledger = TestLedger().apply {
+            entries = listOf(
+                HisabEntry("debt", "group", "member", "other", 1.0),
+                HisabEntry("payment", "group", "other", "member", 1.0)
+            )
+        }
+        val viewModel = GroupDetailViewModel(
+            Groups, Invitations, ledger, Users, session, FailureReporter({ true }, {}),
+            SavedStateHandle(mapOf("groupId" to "group"))
+        )
+        try {
+            runCurrent()
+            assertTrue(viewModel.uiState.value.showClearRecordsDialog)
+            viewModel.dismissClearRecordsDialog()
+            viewModel.clearRecords()
+            runCurrent()
+            assertEquals(0, ledger.clears)
+
+            viewModel.loadData()
+            runCurrent()
+            viewModel.clearRecords()
+            viewModel.clearRecords()
+            runCurrent()
+            assertEquals(1, ledger.clears)
+            assertTrue(viewModel.uiState.value.showClearRecordsDialog)
+            assertTrue(viewModel.uiState.value.clearRecordsError != null)
+            assertFalse(viewModel.uiState.value.isUpdatingLedger)
+        } finally {
+            viewModel.viewModelScope.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun uncertainSavePreservesTheFormAndRequiresReloadBeforeAnotherWrite() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val session = SessionManager().apply { setSession("member", "user") }
@@ -70,8 +107,10 @@ class LedgerRecoveryTest {
 
     private class TestLedger : HisabRepository {
         var writes = 0
+        var clears = 0
+        var entries = emptyList<HisabEntry>()
         var shouldFail = true
-        override fun getAllEntries() = flowOf(emptyList<HisabEntry>())
+        override fun getAllEntries() = flowOf(entries)
         override fun getEntriesForGroup(groupId: String) = getAllEntries()
         override suspend fun createHisabEntry(entry: HisabEntry) {
             writes++
@@ -79,7 +118,10 @@ class LedgerRecoveryTest {
         }
         override suspend fun createBatchEntries(entries: List<HisabEntry>) = error("Unused")
         override suspend fun syncGroupEntries(groupId: String) = Unit
-        override suspend fun clearGroupEntries(groupId: String) = error("Unused")
+        override suspend fun clearGroupEntries(groupId: String) {
+            clears++
+            throw SocketTimeoutException()
+        }
     }
 
     private object Groups : GroupRepository {

@@ -58,6 +58,7 @@ data class GroupDetailUiState(
     val ledgerFormError: String? = null,
     val ledgerNeedsRefresh: Boolean = false,
     val showClearRecordsDialog: Boolean = false,
+    val clearRecordsError: String? = null,
     val isSendingRequest: Boolean = false,
     val isLeaving: Boolean = false,
     val leaveError: String? = null,
@@ -117,7 +118,8 @@ class GroupDetailViewModel @Inject constructor(
                 val recommended = otherIds.mapNotNull { userRepository.fetchRemoteUser(it) }
                 _uiState.update {
                     it.copy(group = group, recommendedUsers = recommended, loadFailure = null,
-                        ledgerNeedsRefresh = false, ledgerFormError = if (it.ledgerNeedsRefresh) null else it.ledgerFormError)
+                        ledgerNeedsRefresh = false, clearRecordsError = null,
+                        ledgerFormError = if (it.ledgerNeedsRefresh) null else it.ledgerFormError)
                 }
                 observeBalances(users)
             } catch (e: CancellationException) {
@@ -329,10 +331,12 @@ class GroupDetailViewModel @Inject constructor(
     }
 
     fun dismissClearRecordsDialog() {
-        _uiState.update { it.copy(showClearRecordsDialog = false) }
+        if (_uiState.value.isUpdatingLedger) return
+        _uiState.update { it.copy(showClearRecordsDialog = false, clearRecordsError = null) }
     }
 
     fun clearRecords() {
+        if (!_uiState.value.showClearRecordsDialog) return
         updateLedger {
             hisabRepository.clearGroupEntries(groupId)
             _uiState.update { it.copy(showClearRecordsDialog = false) }
@@ -343,7 +347,7 @@ class GroupDetailViewModel @Inject constructor(
 
     private fun updateLedger(onSaved: (() -> Unit)? = null, update: suspend () -> Unit) {
         if (_uiState.value.isUpdatingLedger || _uiState.value.ledgerNeedsRefresh) return
-        _uiState.update { it.copy(isUpdatingLedger = true, requestError = null, ledgerFormError = null) }
+        _uiState.update { it.copy(isUpdatingLedger = true, requestError = null, ledgerFormError = null, clearRecordsError = null) }
         viewModelScope.launch {
             try {
                 update()
@@ -357,7 +361,7 @@ class GroupDetailViewModel @Inject constructor(
                 val message = if (needsRefresh) "Reload this Hisab to confirm the current balance before trying again."
                     else failure.message
                 _uiState.update {
-                    if (onSaved == null) it.copy(requestError = message, ledgerNeedsRefresh = needsRefresh)
+                    if (onSaved == null) it.copy(clearRecordsError = message, ledgerNeedsRefresh = needsRefresh)
                     else it.copy(ledgerFormError = message, ledgerNeedsRefresh = needsRefresh)
                 }
             } finally {

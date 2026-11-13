@@ -3,6 +3,8 @@ package com.example.hisab.features.ledger.presentation
 import com.example.hisab.ui.components.LoadFailure
 import com.example.hisab.ui.components.ActionLabel
 import com.example.hisab.ui.components.ListSkeleton
+import com.example.hisab.ui.components.AlertKind
+import com.example.hisab.ui.components.HisabAlert
 import com.example.hisab.ui.components.RefreshFailure
 import androidx.compose.ui.Alignment
 
@@ -155,11 +157,13 @@ fun GroupDetailScreen(
         val debtorIds = myBalance?.receiveBreakdown.orEmpty().map { it.userId }.toSet()
         val creditorIds = myBalance?.debtBreakdown.orEmpty().map { it.userId }.toSet()
         if (debtorIds.isEmpty() && creditorIds.isEmpty()) {
-            AlertDialog(
-                onDismissRequest = { showRepaymentDialog = false },
-                title = { Text("No Outstanding Balance") },
-                text = { Text("You have no outstanding debts or payments to receive.") },
-                confirmButton = { TextButton(onClick = { showRepaymentDialog = false }) { Text("OK") } }
+            HisabAlert(
+                kind = AlertKind.INFO,
+                title = "No outstanding balance",
+                message = "You have no outstanding debts or payments to receive.",
+                onDismiss = { showRepaymentDialog = false },
+                confirmLabel = "OK",
+                onConfirm = { showRepaymentDialog = false }
             )
         } else {
             RepaymentDialog(
@@ -190,52 +194,37 @@ fun GroupDetailScreen(
     var showLeaveDialog by remember { mutableStateOf(false) }
 
     if (showLeaveDialog) {
-        AlertDialog(
-            onDismissRequest = { if (!uiState.isLeaving) showLeaveDialog = false },
-            title = { Text("Leave Group") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Are you sure you want to leave this Hisab group? Your previous records will still be visible to others.")
-                    uiState.leaveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.leaveGroup(onComplete = {
-                        showLeaveDialog = false
-                        onNavigateBack()
-                    })
-                }, enabled = !uiState.isLeaving) {
-                    ActionLabel("Leave", "Leaving…", uiState.isLeaving)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLeaveDialog = false }, enabled = !uiState.isLeaving) {
-                    Text("Cancel")
+        HisabAlert(
+            kind = AlertKind.WARNING,
+            title = "Leave this Hisab?",
+            message = "You’ll lose access to this group. Other members will still see your previous records.",
+            onDismiss = { showLeaveDialog = false },
+            confirmLabel = "Leave",
+            dismissLabel = "Cancel",
+            busy = uiState.isLeaving,
+            busyLabel = "Leaving…",
+            error = uiState.leaveError,
+            onConfirm = {
+                viewModel.leaveGroup {
+                    showLeaveDialog = false
+                    onNavigateBack()
                 }
             }
         )
     }
 
     if (uiState.showClearRecordsDialog) {
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissClearRecordsDialog() },
-            title = { Text("Hisab is Done!") },
-            text = { Text("Everyone is at 0 debt and 0 will receive. Do you want to clear the previous records to save storage?") },
-            confirmButton = {
-                TextButton(
-                    onClick = { if (uiState.ledgerNeedsRefresh) viewModel.loadData() else viewModel.clearRecords() },
-                    enabled = !uiState.isUpdatingLedger && !uiState.isLoading
-                ) {
-                    ActionLabel(if (uiState.ledgerNeedsRefresh) "Reload Hisab" else "Delete Records",
-                        "Deleting…", uiState.isUpdatingLedger)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.dismissClearRecordsDialog() }) {
-                    Text("Keep Records")
-                }
-            }
+        HisabAlert(
+            kind = if (uiState.ledgerNeedsRefresh) AlertKind.ERROR else AlertKind.DESTRUCTIVE,
+            title = "Clear settled records?",
+            message = "All balances are settled. Deleting the transaction history removes it for every group member.",
+            onDismiss = viewModel::dismissClearRecordsDialog,
+            confirmLabel = if (uiState.ledgerNeedsRefresh) "Reload Hisab" else "Delete records",
+            dismissLabel = "Keep records",
+            busy = uiState.isUpdatingLedger || uiState.isLoading,
+            busyLabel = if (uiState.isLoading) "Reloading…" else "Deleting…",
+            error = uiState.clearRecordsError,
+            onConfirm = { if (uiState.ledgerNeedsRefresh) viewModel.loadData() else viewModel.clearRecords() }
         )
     }
 

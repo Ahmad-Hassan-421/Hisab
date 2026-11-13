@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.hisab.features.settings.data.AppUpdateResponse
+import com.example.hisab.ui.components.AlertKind
+import com.example.hisab.ui.components.HisabAlert
 import com.example.hisab.util.ThemeMode
 import com.example.hisab.util.UpdateDownloadStatus
 
@@ -37,12 +39,21 @@ fun SettingsScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     val context = LocalContext.current
 
-    // Automatically trigger APK installation prompt upon completion
-    LaunchedEffect(downloadStatus) {
-        if (downloadStatus is UpdateDownloadStatus.ReadyToInstall) {
-            val apkFile = (downloadStatus as UpdateDownloadStatus.ReadyToInstall).apkFile
-            viewModel.installApk(context, apkFile)
-        }
+    var showDownloadConfirmation by remember { mutableStateOf(false) }
+    val releaseToDownload = uiState.remoteRelease?.takeIf { uiState.updateAvailable }
+    if (showDownloadConfirmation && releaseToDownload != null) {
+        HisabAlert(
+            kind = AlertKind.CONFIRM,
+            title = "Download Hisab ${releaseToDownload.versionName}?",
+            message = "Once the download finishes, you can review and install the update.",
+            onDismiss = { showDownloadConfirmation = false },
+            confirmLabel = "Download",
+            dismissLabel = "Cancel",
+            onConfirm = {
+                showDownloadConfirmation = false
+                viewModel.startUpdateDownload()
+            }
+        )
     }
 
     Scaffold(
@@ -151,7 +162,7 @@ fun SettingsScreen(
                     UpdateAvailableCard(
                         release = release,
                         downloadStatus = downloadStatus,
-                        onDownloadClick = { viewModel.startUpdateDownload() },
+                        onDownloadClick = { showDownloadConfirmation = true },
                         onInstallClick = { apkFile -> viewModel.installApk(context, apkFile) }
                     )
                 }

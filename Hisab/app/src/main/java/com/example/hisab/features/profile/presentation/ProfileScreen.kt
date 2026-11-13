@@ -35,7 +35,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -57,6 +56,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.LaunchedEffect
 import com.example.hisab.ui.components.LoadFailure
 import com.example.hisab.ui.components.ActionLabel
+import com.example.hisab.ui.components.AlertKind
+import com.example.hisab.ui.components.HisabAlert
 import com.example.hisab.ui.components.ProfileSkeleton
 import com.example.hisab.ui.components.RefreshFailure
 import androidx.compose.runtime.Composable
@@ -205,25 +206,17 @@ fun ProfileScreen(
     }
 
     if (showLogoutDialog) {
-        AlertDialog(
-            onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Log Out") },
-            text = { Text("Are you sure you want to log out?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showLogoutDialog = false
-                        viewModel.logout()
-                        onLoggedOut()
-                    }
-                ) {
-                    Text("Log Out", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("Cancel")
-                }
+        HisabAlert(
+            kind = AlertKind.CONFIRM,
+            title = "Log out?",
+            message = "You’ll need to sign in again to open your Hisabs.",
+            onDismiss = { showLogoutDialog = false },
+            confirmLabel = "Log out",
+            dismissLabel = "Cancel",
+            onConfirm = {
+                showLogoutDialog = false
+                viewModel.logout()
+                onLoggedOut()
             }
         )
     }
