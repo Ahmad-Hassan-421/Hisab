@@ -4,9 +4,12 @@ import com.example.hisab.ui.components.LoadFailure
 import com.example.hisab.ui.components.ListSkeleton
 import com.example.hisab.ui.components.FeedbackEffect
 import com.example.hisab.ui.components.FeedbackKind
+import com.example.hisab.ui.components.HisabRefresh
 import com.example.hisab.ui.components.RefreshFailure
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -125,23 +128,25 @@ fun DashboardScreen(
             }
         }
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+        HisabRefresh(
+            refreshing = uiState.isRefreshing,
+            onRefresh = { viewModel.refreshGroups() },
+            enabled = uiState.hasLoaded,
+            modifier = Modifier.padding(padding)
         ) {
+          Box(Modifier.fillMaxSize()) {
             val failure = uiState.failure
             if (!uiState.hasLoaded && uiState.isLoading && failure == null) {
                 ListSkeleton("Loading your Hisabs", Modifier.padding(16.dp))
             } else if (!uiState.hasLoaded && failure != null) {
-                LoadFailure("Couldn't load your Hisabs", failure, viewModel::refreshGroups,
+                LoadFailure("Couldn't load your Hisabs", failure, { viewModel.refreshGroups() },
                     Modifier.align(Alignment.Center), retryEnabled = !uiState.isLoading)
             } else {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    if (failure != null) RefreshFailure(failure, viewModel::refreshGroups, !uiState.isLoading)
+                    if (failure != null) RefreshFailure(failure, { viewModel.refreshGroups() }, !uiState.isLoading)
                     if (uiState.groups.isEmpty()) {
                         Column(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
@@ -170,6 +175,7 @@ fun DashboardScreen(
                     }
                 }
             }
+          }
         }
     }
 }

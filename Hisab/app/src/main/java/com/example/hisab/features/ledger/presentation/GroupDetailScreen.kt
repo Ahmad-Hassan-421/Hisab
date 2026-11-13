@@ -5,6 +5,7 @@ import com.example.hisab.ui.components.ActionLabel
 import com.example.hisab.ui.components.ListSkeleton
 import com.example.hisab.ui.components.AlertKind
 import com.example.hisab.ui.components.HisabAlert
+import com.example.hisab.ui.components.HisabRefresh
 import com.example.hisab.ui.components.FeedbackEffect
 import com.example.hisab.ui.components.FeedbackKind
 import com.example.hisab.ui.components.LocalHisabFeedback
@@ -301,10 +302,15 @@ fun GroupDetailScreen(
             )
         }
         
+        HisabRefresh(
+            refreshing = uiState.isRefreshing,
+            onRefresh = viewModel::loadData,
+            enabled = uiState.group != null && !uiState.isUpdatingLedger && !uiState.isLeaving,
+            modifier = Modifier.padding(padding)
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .padding(16.dp)
         ) {
             val failure = uiState.loadFailure
@@ -321,7 +327,7 @@ fun GroupDetailScreen(
                         showAddAmountDialog = true
                     },
                     modifier = Modifier.weight(1f),
-                    enabled = !uiState.isUpdatingLedger && uiState.group != null,
+                    enabled = !uiState.isUpdatingLedger && !uiState.isRefreshing && uiState.group != null,
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                 ) {
                     Text(
@@ -338,7 +344,7 @@ fun GroupDetailScreen(
                         showRepaymentDialog = true
                     },
                     modifier = Modifier.weight(1f),
-                    enabled = !uiState.isUpdatingLedger && uiState.group != null,
+                    enabled = !uiState.isUpdatingLedger && !uiState.isRefreshing && uiState.group != null,
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                 ) {
                     Text(
@@ -355,7 +361,7 @@ fun GroupDetailScreen(
                         showIOweHimDialog = true
                     },
                     modifier = Modifier.weight(1f),
-                    enabled = !uiState.isUpdatingLedger && uiState.group != null,
+                    enabled = !uiState.isUpdatingLedger && !uiState.isRefreshing && uiState.group != null,
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                 ) {
                     Text(
@@ -441,6 +447,7 @@ fun GroupDetailScreen(
                     }
                 }
             }
+        }
         }
     }
 }

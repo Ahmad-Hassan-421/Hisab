@@ -39,7 +39,7 @@ The starting revision is `426a1c44d382908a4028e82aa4de8aaabfbfbc67`. GitHub conf
 | 3. Exception handling | COMPLETED |
 | 4. Alerts and confirmations | COMPLETED |
 | 5. Non-blocking feedback | COMPLETED |
-| 6. Refresh and synchronization | PENDING |
+| 6. Refresh and synchronization | COMPLETED |
 | 7. Home refinement | PENDING |
 | 8. Hisab detail refinement | PENDING |
 | 9. Profile avatars | PENDING |

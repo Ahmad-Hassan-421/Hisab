@@ -24,6 +24,7 @@ data class DashboardUiState(
     val groups: List<HisabGroup> = emptyList(),
     val isLoading: Boolean = true,
     val hasLoaded: Boolean = false,
+    val isRefreshing: Boolean = false,
     val failure: AppFailure? = null,
     val actionError: String? = null
 )
@@ -50,7 +51,7 @@ class DashboardViewModel @Inject constructor(
                 _uiState.value = DashboardUiState()
                 if (userId == null) return@collectLatest
                 while (isActive) {
-                    refreshGroups()
+                    refreshGroups(userInitiated = false)
                     refreshJob?.join()
                     delay(15_000)
                 }
@@ -58,22 +59,25 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    fun refreshGroups() {
+    fun refreshGroups(userInitiated: Boolean = true) {
         val userId = sessionManager.currentUserId.value ?: return
+        if (userInitiated && _uiState.value.hasLoaded) _uiState.update { it.copy(isRefreshing = true) }
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
                 val groups = groupRepository.getGroupsForUser(userId)
                 if (sessionManager.currentUserId.value == userId) {
-                    _uiState.update { it.copy(groups = groups, isLoading = false, hasLoaded = true, failure = null) }
+                    _uiState.update {
+                        it.copy(groups = groups, isLoading = false, isRefreshing = false, hasLoaded = true, failure = null)
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 val failure = failures.report("Load Hisabs", e)
                 if (sessionManager.currentUserId.value == userId) {
-                    _uiState.update { it.copy(isLoading = false, failure = failure) }
+                    _uiState.update { it.copy(isLoading = false, isRefreshing = false, failure = failure) }
                 }
             }
         }
@@ -83,7 +87,8 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 groupRepository.deleteGroup(groupId)
-                refreshGroups()
+                refreshJob?.cancel()
+                refreshGroups(userInitiated = false)
             } catch (e: Exception) {
                 val failure = failures.report("Delete Hisab", e)
                 _uiState.update { it.copy(actionError = failure.message) }

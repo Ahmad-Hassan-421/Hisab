@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -53,6 +54,7 @@ data class GroupDetailUiState(
     val recommendedUsers: List<User> = emptyList(),
     val currentUserId: String = "",
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val loadFailure: AppFailure? = null,
     val isUpdatingLedger: Boolean = false,
     val ledgerFormError: String? = null,
@@ -85,7 +87,13 @@ class GroupDetailViewModel @Inject constructor(
     private var ledgerObservation: Job? = null
 
     init {
-        loadData()
+        viewModelScope.launch {
+            sessionManager.currentUserId.collectLatest { userId ->
+                ledgerObservation?.cancel()
+                _uiState.value = GroupDetailUiState()
+                if (userId != null) loadData()
+            }
+        }
     }
 
     fun loadData() {
@@ -93,18 +101,19 @@ class GroupDetailViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = false, loadFailure = AppFailure.MISSING) }
             return
         }
-        if (ledgerObservation?.isActive == true && _uiState.value.isLoading) return
+        if (_uiState.value.isUpdatingLedger || (ledgerObservation?.isActive == true && _uiState.value.isLoading)) return
         
         ledgerObservation?.cancel()
         ledgerObservation = viewModelScope.launch {
             val uid = sessionManager.currentUserId.filterNotNull().first()
-            _uiState.update { it.copy(isLoading = true, currentUserId = uid) }
+            _uiState.update { it.copy(isLoading = true, isRefreshing = it.group != null, currentUserId = uid) }
             try {
                 val groups = groupRepository.getGroupsForUser(uid)
+                if (sessionManager.currentUserId.value != uid) return@launch
                 val group = groups.find { it.id == groupId }
                 if (group == null) {
                     _uiState.update {
-                        it.copy(isLoading = false, group = null, entries = emptyList(), members = emptyList(),
+                        it.copy(isLoading = false, isRefreshing = false, group = null, entries = emptyList(), members = emptyList(),
                             showClearRecordsDialog = false, loadFailure = AppFailure.MISSING)
                     }
                     return@launch
@@ -117,24 +126,29 @@ class GroupDetailViewModel @Inject constructor(
                 }
                 val otherIds = groups.flatMap { it.members }.toSet() - group.members.toSet() - uid
                 val recommended = otherIds.mapNotNull { userRepository.fetchRemoteUser(it) }
+                if (sessionManager.currentUserId.value != uid) return@launch
                 _uiState.update {
                     it.copy(group = group, recommendedUsers = recommended, loadFailure = null,
                         ledgerNeedsRefresh = false, clearRecordsError = null,
                         ledgerFormError = if (it.ledgerNeedsRefresh) null else it.ledgerFormError)
                 }
-                observeBalances(users)
+                observeBalances(users, uid)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 val failure = failures.report("Load Hisab", e)
-                _uiState.update { it.copy(isLoading = false, loadFailure = failure) }
+                if (sessionManager.currentUserId.value == uid) {
+                    _uiState.update { it.copy(isLoading = false, isRefreshing = false, loadFailure = failure) }
+                }
             }
         }
     }
 
-    private suspend fun observeBalances(users: List<User>) {
-        var wasSettled = false
+    private suspend fun observeBalances(users: List<User>, userId: String) {
+        var wasSettled = _uiState.value.entries.isNotEmpty() &&
+            _uiState.value.members.all { it.totalDebt.signum() == 0 && it.totalReceive.signum() == 0 }
         hisabRepository.getEntriesForGroup(groupId).collect { entries ->
+            if (sessionManager.currentUserId.value != userId) return@collect
             val pairBalances = LedgerAmounts.netByMember(entries)
             val balances = calculateBalances(users, pairBalances)
             // Preserve expanded states
@@ -148,6 +162,7 @@ class GroupDetailViewModel @Inject constructor(
                 members = updatedBalances, 
                 entries = entries, 
                 isLoading = false,
+                isRefreshing = false,
                 showClearRecordsDialog = allClear && (!wasSettled || it.showClearRecordsDialog)
             ) }
             wasSettled = allClear
@@ -349,7 +364,7 @@ class GroupDetailViewModel @Inject constructor(
     fun clearLedgerFormError() = _uiState.update { it.copy(ledgerFormError = null) }
 
     private fun updateLedger(onSaved: (() -> Unit)? = null, update: suspend () -> Unit) {
-        if (_uiState.value.isUpdatingLedger || _uiState.value.ledgerNeedsRefresh) return
+        if (_uiState.value.isUpdatingLedger || _uiState.value.isRefreshing || _uiState.value.ledgerNeedsRefresh) return
         _uiState.update { it.copy(isUpdatingLedger = true, requestError = null, ledgerFormError = null, clearRecordsError = null) }
         viewModelScope.launch {
             try {
