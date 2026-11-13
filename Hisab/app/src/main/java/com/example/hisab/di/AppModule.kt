@@ -11,7 +11,6 @@ import com.example.hisab.features.invitations.data.ApiRequestRepository
 import com.example.hisab.features.profile.data.ApiUserRepository
 import com.example.hisab.data.remote.TokenInterceptor
 import com.example.hisab.data.remote.api.HisabApiService
-import com.example.hisab.data.remote.api.WebSocketClient
 import com.example.hisab.features.groups.domain.GroupRepository
 import com.example.hisab.features.ledger.domain.HisabRepository
 import com.example.hisab.features.invitations.domain.RequestRepository
@@ -19,7 +18,6 @@ import com.example.hisab.features.profile.domain.UserRepository
 import com.example.hisab.features.settings.data.ApiUpdateRepository
 import com.example.hisab.features.settings.domain.UpdateRepository
 import com.example.hisab.util.Constants
-import com.example.hisab.util.TokenManager
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -88,11 +86,6 @@ object NetworkModule {
         return retrofit.create(HisabApiService::class.java)
     }
 
-    @Provides
-    @Singleton
-    fun provideWebSocketClient(tokenManager: TokenManager, okHttpClient: OkHttpClient): WebSocketClient {
-        return WebSocketClient(tokenManager, okHttpClient)
-    }
 }
 
 @Module

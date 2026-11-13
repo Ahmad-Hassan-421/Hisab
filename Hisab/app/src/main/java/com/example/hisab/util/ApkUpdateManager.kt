@@ -9,7 +9,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
-import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -33,7 +32,6 @@ class ApkUpdateManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val failures: FailureReporter
 ) {
-    private val tag = "ApkUpdateManager"
     private val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -144,7 +142,11 @@ class ApkUpdateManager @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(tag, "Error reading download progress", e)
+                failures.report("Read update progress", e)
+                if (downloadId == activeDownloadId) {
+                    _status.value = UpdateDownloadStatus.Error("Couldn't read the download status. Check Downloads and try again.")
+                }
+                isRunning = false
             }
             delay(400)
         }
@@ -175,7 +177,10 @@ class ApkUpdateManager @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            Log.e(tag, "Error verifying completed download", e)
+            failures.report("Read completed download", e)
+            if (downloadId == activeDownloadId) {
+                _status.value = UpdateDownloadStatus.Error("Couldn't verify the download. Please try again.")
+            }
         }
     }
 

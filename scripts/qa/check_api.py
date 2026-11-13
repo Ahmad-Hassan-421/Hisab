@@ -41,6 +41,15 @@ def main():
                 data = json.loads(raw)
             except (ValueError, UnicodeDecodeError):
                 data = raw
+            if args.extended and response.status >= 400:
+                request_id = response.headers.get("X-Request-ID")
+                try:
+                    parsed_id = uuid.UUID(request_id) if request_id else None
+                except ValueError:
+                    parsed_id = None
+                if (parsed_id is None or not isinstance(data, dict) or data.get("requestId") != request_id
+                        or data.get("code") != response.status or not isinstance(data.get("error"), str)):
+                    raise AssertionError(f"Invalid error envelope for {method} ({response.status})")
             return response.status, data
 
     def check(label, condition, observed=""):
@@ -71,6 +80,7 @@ def main():
         ready = expect("database-backed readiness", 200, "GET", "/healthz")
         check("readiness body is minimal", ready == b"ok")
         expect("invalid JSON", 400, "POST", "/auth/register", body=b"{")
+        expect("unknown routes return a correlated error", 404, "GET", "/nonexistent-qa-route")
 
     users = []
     for who in ("alice", "bob", "outsider"):

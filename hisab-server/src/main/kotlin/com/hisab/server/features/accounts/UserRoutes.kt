@@ -4,6 +4,7 @@ import com.hisab.server.database.MongoClientProvider
 import com.hisab.server.features.media.ProfileImages
 import com.hisab.server.models.UserDocument
 import com.hisab.server.plugins.authenticatedUserId
+import com.hisab.server.plugins.respondFailure
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -39,22 +40,22 @@ fun Route.userRoutes() {
     authenticate("auth-jwt") {
         route("/users") {
             get("/{id}") {
-                val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+                val id = call.parameters["id"] ?: return@get call.respondFailure(HttpStatusCode.BadRequest)
                 val user = MongoClientProvider.users.findOne(UserDocument::id eq id)
-                if (user != null) call.respond(user.toResponse(call.authenticatedUserId)) else call.respond(HttpStatusCode.NotFound)
+                if (user != null) call.respond(user.toResponse(call.authenticatedUserId)) else call.respondFailure(HttpStatusCode.NotFound)
             }
 
             get("/by-unique-id/{uid}") {
-                val uid = call.parameters["uid"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+                val uid = call.parameters["uid"] ?: return@get call.respondFailure(HttpStatusCode.BadRequest)
                 val user = MongoClientProvider.users.findOne(UserDocument::uniqueId eq uid)
-                if (user != null) call.respond(user.toResponse(call.authenticatedUserId)) else call.respond(HttpStatusCode.NotFound)
+                if (user != null) call.respond(user.toResponse(call.authenticatedUserId)) else call.respondFailure(HttpStatusCode.NotFound)
             }
 
             put("/{id}") {
-                val id = call.parameters["id"] ?: return@put call.respond(HttpStatusCode.BadRequest)
+                val id = call.parameters["id"] ?: return@put call.respondFailure(HttpStatusCode.BadRequest)
                 val userId = call.authenticatedUserId
                 
-                if (id != userId) return@put call.respond(HttpStatusCode.Forbidden)
+                if (id != userId) return@put call.respondFailure(HttpStatusCode.Forbidden)
 
                 val req = call.receive<UpdateUserRequest>()
                 val theme = req.themePreference.lowercase()
@@ -62,9 +63,9 @@ fun Route.userRoutes() {
                 if (req.name.isBlank() || req.name.length > 120 ||
                     theme !in setOf("system", "light", "dark") || req.profilePicUrl.length > 2048 ||
                     !ProfileImages.isSupported(image)
-                ) return@put call.respond(HttpStatusCode.BadRequest, "Invalid profile")
+                ) return@put call.respondFailure(HttpStatusCode.BadRequest, "Invalid profile")
                 val users = MongoClientProvider.users
-                val existing = users.findOne(UserDocument::id eq id) ?: return@put call.respond(HttpStatusCode.NotFound)
+                val existing = users.findOne(UserDocument::id eq id) ?: return@put call.respondFailure(HttpStatusCode.NotFound)
                 
                 val updated = existing.copy(
                     name = req.name,

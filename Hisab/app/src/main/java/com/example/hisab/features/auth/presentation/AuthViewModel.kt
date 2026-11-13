@@ -55,17 +55,24 @@ class AuthViewModel @Inject constructor(
         val savedUserId = tokenManager.getUserId()
         if (savedUserId != null) {
             viewModelScope.launch {
-                val localUser = userRepository.getCurrentUser(savedUserId).first()
+                val localUser = try {
+                    userRepository.getCurrentUser(savedUserId).first()
+                } catch (e: Exception) {
+                    failures.report("Read saved account", e)
+                    null
+                }
                 val restored = tokenManager.getUserId() == savedUserId
                 if (restored) sessionManager.setSession(savedUserId, localUser?.role ?: "user")
                 _uiState.update { it.copy(isSignedIn = restored, isLoading = false) }
 
                 try {
-                    val remoteUser = userRepository.fetchRemoteUser(savedUserId)
-                    if (restored && remoteUser != null) {
+                    val remoteUser = userRepository.fetchRemoteUser(savedUserId, allowCached = false)
+                    if (restored && remoteUser != null && tokenManager.getUserId() == savedUserId) {
                         sessionManager.setSession(savedUserId, remoteUser.role)
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    failures.report("Refresh saved account", e)
+                }
             }
         } else {
             sessionManager.clear()

@@ -2,6 +2,7 @@ package com.example.hisab.data.remote.api
 
 import android.util.Log
 import com.example.hisab.util.Constants
+import com.example.hisab.util.FailureReporter
 import com.example.hisab.util.TokenManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -9,13 +10,15 @@ import kotlinx.coroutines.flow.asSharedFlow
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONObject
+import org.json.JSONException
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class WebSocketClient @Inject constructor(
     private val tokenManager: TokenManager,
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient: OkHttpClient,
+    private val failures: FailureReporter
 ) {
     private var webSocket: WebSocket? = null
     private val _incomingMessages = MutableSharedFlow<JSONObject>(extraBufferCapacity = 16)
@@ -38,13 +41,13 @@ class WebSocketClient @Inject constructor(
                 try {
                     val json = JSONObject(text)
                     _incomingMessages.tryEmit(json)
-                } catch (e: Exception) {
-                    Log.e("WebSocket", "Error parsing message", e)
+                } catch (e: JSONException) {
+                    failures.report("Read realtime message", e)
                 }
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e("WebSocket", "Connection failed", t)
+                failures.report("Connect realtime updates", t)
             }
         })
     }

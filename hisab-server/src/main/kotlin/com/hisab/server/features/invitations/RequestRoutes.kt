@@ -11,6 +11,7 @@ import com.hisab.server.plugins.authenticatedUserId
 import com.hisab.server.plugins.RequestFailure
 import com.hisab.server.features.realtime.WebSocketManager
 import com.mongodb.client.model.Updates
+import com.hisab.server.plugins.respondFailure
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -49,8 +50,8 @@ fun Route.requestRoutes() {
     authenticate("auth-jwt") {
         route("/requests") {
             get {
-                val receiverId = call.request.queryParameters["receiverId"] ?: return@get call.respond(HttpStatusCode.BadRequest)
-                if (receiverId != call.authenticatedUserId) return@get call.respond(HttpStatusCode.Forbidden)
+                val receiverId = call.request.queryParameters["receiverId"] ?: return@get call.respondFailure(HttpStatusCode.BadRequest)
+                if (receiverId != call.authenticatedUserId) return@get call.respondFailure(HttpStatusCode.Forbidden)
                 val status = call.request.queryParameters["status"] ?: "pending"
                 val requests = MongoClientProvider.requests.find(
                     and(HisabRequestDocument::receiverId eq receiverId, HisabRequestDocument::status eq status)
@@ -62,19 +63,19 @@ fun Route.requestRoutes() {
                 val req = call.receive<SendRequestRequest>()
                 val senderId = call.authenticatedUserId
                 if (req.receiverUniqueId.length != 12 || req.receiverUniqueId.any { it !in '0'..'9' }) {
-                    return@post call.respond(HttpStatusCode.BadRequest, "Invalid recipient ID")
+                    return@post call.respondFailure(HttpStatusCode.BadRequest, "Invalid recipient ID")
                 }
                 
                 val users = MongoClientProvider.users
-                val sender = users.findOne(UserDocument::id eq senderId) ?: return@post call.respond(HttpStatusCode.NotFound)
+                val sender = users.findOne(UserDocument::id eq senderId) ?: return@post call.respondFailure(HttpStatusCode.NotFound)
                 
                 if (req.receiverUniqueId == sender.uniqueId) {
-                    call.respond(HttpStatusCode.BadRequest, "Cannot invite yourself")
+                    call.respondFailure(HttpStatusCode.BadRequest, "Cannot invite yourself")
                     return@post
                 }
                 
                 val receiver = users.findOne(UserDocument::uniqueId eq req.receiverUniqueId) 
-                    ?: return@post call.respond(HttpStatusCode.NotFound, "User not found")
+                    ?: return@post call.respondFailure(HttpStatusCode.NotFound, "User not found")
                 
                 val requests = MongoClientProvider.requests
                 val (request, created) = MongoClientProvider.transaction { session ->
@@ -122,10 +123,10 @@ fun Route.requestRoutes() {
             }
             
             patch("/{id}") {
-                val id = call.parameters["id"] ?: return@patch call.respond(HttpStatusCode.BadRequest)
+                val id = call.parameters["id"] ?: return@patch call.respondFailure(HttpStatusCode.BadRequest)
                 val req = call.receive<UpdateRequestRequest>()
                 if (req.status !in setOf("accepted", "declined")) {
-                    return@patch call.respond(HttpStatusCode.BadRequest, "Invalid invitation state")
+                    return@patch call.respondFailure(HttpStatusCode.BadRequest, "Invalid invitation state")
                 }
                 val actor = call.authenticatedUserId
                 val requests = MongoClientProvider.requests

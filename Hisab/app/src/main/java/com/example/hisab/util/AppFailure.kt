@@ -8,6 +8,7 @@ import com.google.gson.JsonParseException
 import com.google.gson.stream.MalformedJsonException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import org.json.JSONException
 import retrofit2.HttpException
 import java.io.EOFException
 import java.io.IOException
@@ -42,8 +43,9 @@ enum class AppFailure(val message: String) {
                 in 500..599 -> UNAVAILABLE
                 else -> UNEXPECTED
             }
-            is JsonParseException, is MalformedJsonException, is EOFException -> INVALID_RESPONSE
+            is JsonParseException, is MalformedJsonException, is EOFException, is JSONException -> INVALID_RESPONSE
             is SQLiteException -> STORAGE
+            is SecurityException -> FORBIDDEN
             is SocketTimeoutException -> if (hasNetwork) TIMEOUT else OFFLINE
             is IOException -> if (hasNetwork) UNAVAILABLE else OFFLINE
             else -> UNEXPECTED

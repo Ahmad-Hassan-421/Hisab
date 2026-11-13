@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.hisab.features.profile.domain.UserRepository
 import com.example.hisab.util.SessionManager
 import com.example.hisab.util.TokenManager
+import com.example.hisab.util.FailureReporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -15,7 +16,8 @@ import javax.inject.Inject
 class SessionViewModel @Inject constructor(
     private val sessionManager: SessionManager,
     private val userRepository: UserRepository,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val failures: FailureReporter
 ) : ViewModel() {
 
     val currentUserId: StateFlow<String?> = sessionManager.currentUserId
@@ -32,17 +34,24 @@ class SessionViewModel @Inject constructor(
         if (userId != null) {
             viewModelScope.launch {
                 // 1. Immediately hydrate session from local cached user in Room on cold start
-                val localUser = userRepository.getCurrentUser(userId).first()
+                val localUser = try {
+                    userRepository.getCurrentUser(userId).first()
+                } catch (e: Exception) {
+                    failures.report("Read saved session profile", e)
+                    null
+                }
                 if (tokenManager.getUserId() == userId) {
                     sessionManager.setSession(userId = userId, role = localUser?.role ?: "user")
                 }
                 // 2. Fetch latest remote state in background and update session
                 try {
-                    val remoteUser = userRepository.fetchRemoteUser(userId)
+                    val remoteUser = userRepository.fetchRemoteUser(userId, allowCached = false)
                     if (remoteUser != null && tokenManager.getUserId() == userId) {
                         sessionManager.setSession(userId = userId, role = remoteUser.role)
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    failures.report("Restore session profile", e)
+                }
             }
         }
     }

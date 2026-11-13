@@ -1,5 +1,6 @@
 package com.hisab.server.features.media
 
+import com.hisab.server.plugins.respondFailure
 import io.ktor.http.content.*
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -35,14 +36,14 @@ fun Route.storageRoutes(uploadDirectory: File) {
                 }
             }
             val image = bytes
-            if (invalid || image == null) return@post call.respond(HttpStatusCode.BadRequest, "Provide one image")
-            if (image.size > MAX_PROFILE_BYTES) return@post call.respond(HttpStatusCode.PayloadTooLarge)
+            if (invalid || image == null) return@post call.respondFailure(HttpStatusCode.BadRequest, "Provide one image")
+            if (image.size > MAX_PROFILE_BYTES) return@post call.respondFailure(HttpStatusCode.PayloadTooLarge)
             val extension = when {
                 image.size >= 8 && image.copyOf(8).contentEquals(
                     byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
                 ) -> "png"
                 image.size >= 3 && image[0] == 0xff.toByte() && image[1] == 0xd8.toByte() && image[2] == 0xff.toByte() -> "jpg"
-                else -> return@post call.respond(HttpStatusCode.UnsupportedMediaType, "Use a PNG or JPEG image")
+                else -> return@post call.respondFailure(HttpStatusCode.UnsupportedMediaType, "Use a PNG or JPEG image")
             }
             val fileName = "${UUID.randomUUID()}.$extension"
             withContext(Dispatchers.IO) { File(uploadDirectory, fileName).writeBytes(image) }

@@ -6,6 +6,7 @@ import com.hisab.server.database.MongoClientProvider
 import com.hisab.server.models.UserDocument
 import com.mongodb.ErrorCategory
 import com.mongodb.MongoWriteException
+import com.hisab.server.plugins.respondFailure
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -29,11 +30,11 @@ fun Route.authRoutes() {
                 !emailPattern.matches(req.email) || req.password.length < 8 || !req.password.isBcryptInput() ||
                 !req.password.any(Char::isLetter) || !req.password.any(Char::isDigit) ||
                 !req.password.any { !it.isLetterOrDigit() }
-            ) return@post call.respond(HttpStatusCode.BadRequest, "Invalid registration")
+            ) return@post call.respondFailure(HttpStatusCode.BadRequest, "Invalid registration")
             val users = MongoClientProvider.users
             
             if (users.findOne(UserDocument::email eq req.email) != null) {
-                call.respond(HttpStatusCode.Conflict, "Email already exists")
+                call.respondFailure(HttpStatusCode.Conflict, "Email already exists")
                 return@post
             }
             
@@ -51,7 +52,7 @@ fun Route.authRoutes() {
                 users.insertOne(newUser)
             } catch (error: MongoWriteException) {
                 if (error.error.category != ErrorCategory.DUPLICATE_KEY) throw error
-                return@post call.respond(HttpStatusCode.Conflict, "Account already exists. Try signing in.")
+                return@post call.respondFailure(HttpStatusCode.Conflict, "Account already exists. Try signing in.")
             }
             val token = JwtUtil.generateToken(newUser.id, newUser.role)
             
@@ -63,7 +64,7 @@ fun Route.authRoutes() {
         post("/login") {
             val req = call.receive<LoginRequest>()
             if (req.email.isBlank() || req.email.length > 254 || !req.password.isBcryptInput()) {
-                return@post call.respond(HttpStatusCode.Unauthorized, "Invalid credentials")
+                return@post call.respondFailure(HttpStatusCode.Unauthorized, "Invalid credentials")
             }
             val user = MongoClientProvider.users.findOne(UserDocument::email eq req.email)
             
@@ -71,7 +72,7 @@ fun Route.authRoutes() {
                 val token = JwtUtil.generateToken(user.id, user.role)
                 call.respond(HttpStatusCode.OK, AuthResponse(token, user.toResponse()))
             } else {
-                call.respond(HttpStatusCode.Unauthorized, "Invalid credentials")
+                call.respondFailure(HttpStatusCode.Unauthorized, "Invalid credentials")
             }
         }
     }

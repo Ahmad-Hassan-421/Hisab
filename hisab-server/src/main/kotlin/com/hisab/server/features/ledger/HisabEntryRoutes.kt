@@ -8,6 +8,7 @@ import com.hisab.server.models.HisabEntryDocument
 import com.hisab.server.models.HisabGroupDocument
 import com.hisab.server.plugins.authenticatedUserId
 import com.hisab.server.plugins.RequestFailure
+import com.hisab.server.plugins.respondFailure
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -151,7 +152,7 @@ fun Route.hisabEntryRoutes() {
                     val entries = MongoClientProvider.entries.find(HisabEntryDocument::groupId eq groupId).toList()
                     call.respond(entries)
                 } else {
-                    call.respond(HttpStatusCode.BadRequest, "groupId is required")
+                    call.respondFailure(HttpStatusCode.BadRequest, "groupId is required")
                 }
             }
             
@@ -163,12 +164,12 @@ fun Route.hisabEntryRoutes() {
 
             post("/batch") {
                 val req = call.receive<CreateBatchEntryRequest>()
-                if (req.entries.size !in 1..100) return@post call.respond(HttpStatusCode.BadRequest, "Invalid batch size")
+                if (req.entries.size !in 1..100) return@post call.respondFailure(HttpStatusCode.BadRequest, "Invalid batch size")
                 call.respond(HttpStatusCode.Created, persistEntries(req.entries, call.authenticatedUserId))
             }
             
             delete("/{id}") {
-                val id = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
+                val id = call.parameters["id"] ?: return@delete call.respondFailure(HttpStatusCode.BadRequest)
                 val actor = call.authenticatedUserId
                 val entries = MongoClientProvider.entries
                 MongoClientProvider.transaction { session ->
@@ -183,7 +184,7 @@ fun Route.hisabEntryRoutes() {
                 call.respond(HttpStatusCode.OK)
             }
             delete("/group/{groupId}") {
-                val groupId = call.parameters["groupId"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
+                val groupId = call.parameters["groupId"] ?: return@delete call.respondFailure(HttpStatusCode.BadRequest)
                 val actor = call.authenticatedUserId
                 val entries = MongoClientProvider.entries
                 MongoClientProvider.transaction { session ->

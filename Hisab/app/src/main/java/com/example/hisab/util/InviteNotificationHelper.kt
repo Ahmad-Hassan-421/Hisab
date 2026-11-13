@@ -8,7 +8,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.os.Build
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import coil.ImageLoader
@@ -23,12 +22,12 @@ import javax.inject.Singleton
 
 @Singleton
 class InviteNotificationHelper @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val failures: FailureReporter
 ) {
     companion object {
         const val CHANNEL_ID = "hisab_invites_channel"
         const val CHANNEL_NAME = "Hisab Invites"
-        private const val TAG = "InviteNotification"
     }
 
     private val notificationManager = NotificationManagerCompat.from(context)
@@ -60,7 +59,7 @@ class InviteNotificationHelper @Inject constructor(
                 val avatarBitmap = loadAvatarBitmap(request.profilePictureUrl ?: request.senderProfilePicUrl)
                 postNotification(request, avatarBitmap)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to display invite notification", e)
+                failures.report("Show invite notification", e)
             }
         }
     }
@@ -79,7 +78,7 @@ class InviteNotificationHelper @Inject constructor(
                 (result.drawable as? BitmapDrawable)?.bitmap
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to load notification avatar bitmap within timeout", e)
+            failures.report("Load notification picture", e)
             null
         }
     }
@@ -118,9 +117,9 @@ class InviteNotificationHelper @Inject constructor(
                 notificationManager.notify(request.id.hashCode(), builder.build())
             }
         } catch (e: SecurityException) {
-            Log.w(TAG, "Notification permission not granted", e)
+            failures.report("Post invite notification", e)
         } catch (e: Exception) {
-            Log.e(TAG, "Error posting invite notification", e)
+            failures.report("Post invite notification", e)
         }
     }
 }

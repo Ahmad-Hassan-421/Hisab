@@ -7,6 +7,8 @@ import com.example.hisab.data.db.UserDao
 import com.example.hisab.data.remote.api.HisabApiService
 import com.example.hisab.features.profile.data.UpdateUserRequest
 import com.example.hisab.features.profile.domain.UserRepository
+import com.example.hisab.util.AppFailure
+import com.example.hisab.util.FailureReporter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +26,8 @@ import javax.inject.Singleton
 class ApiUserRepository @Inject constructor(
     private val api: HisabApiService,
     private val userDao: UserDao,
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val failures: FailureReporter
 ) : UserRepository {
 
     override fun getCurrentUser(userId: String): Flow<User?> = userDao.getUser(userId)
@@ -59,6 +62,7 @@ class ApiUserRepository @Inject constructor(
             throw e
         } catch (e: Exception) {
             if (!allowCached) throw e
+            if (failures.report("Fetch profile", e) == AppFailure.SESSION_EXPIRED) throw e
             existing ?: userDao.getUser(userId).first()
         }
     }
@@ -73,11 +77,7 @@ class ApiUserRepository @Inject constructor(
     }
 
     override suspend fun saveUser(user: User) {
-        val userWithRole = preserveRole(user)
-        try {
-            api.updateUser(user.id, UpdateUserRequest(userWithRole.name, userWithRole.profilePicUrl, userWithRole.themePreference))
-        } catch (_: Exception) {}
-        userDao.insert(userWithRole)
+        updateUser(user)
     }
 
     override suspend fun updateUser(user: User) {
@@ -99,7 +99,11 @@ class ApiUserRepository @Inject constructor(
                 file.outputStream().use { output -> source.copyTo(output) }
             }
             // Cache locally in persistent internal filesDir so it survives app restarts
-            runCatching { file.copyTo(localPersistentAvatar, overwrite = true) }
+            try {
+                file.copyTo(localPersistentAvatar, overwrite = true)
+            } catch (e: java.io.IOException) {
+                failures.report("Cache profile picture", e)
+            }
 
             val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
             val body = MultipartBody.Part.createFormData("image", file.name, requestFile)

@@ -4,6 +4,7 @@ import com.hisab.server.features.accounts.JwtUtil
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
+import io.ktor.http.HttpStatusCode
 
 fun Application.configureSecurity() {
     val tokenVerifier = JwtUtil.verifier()
@@ -11,6 +12,7 @@ fun Application.configureSecurity() {
         jwt("auth-jwt") {
             realm = "Hisab Server"
             verifier(tokenVerifier)
+            challenge { _, _ -> call.respondFailure(HttpStatusCode.Unauthorized, "Sign-in required") }
             validate { credential ->
                 if (!credential.payload.getClaim("userId").asString().isNullOrBlank()) {
                     JWTPrincipal(credential.payload)
