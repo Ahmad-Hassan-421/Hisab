@@ -49,4 +49,4 @@ The starting revision is `426a1c44d382908a4028e82aa4de8aaabfbfbc67`. GitHub conf
 | 13. Final regression | COMPLETED |
 | 14. Remote CI verification | COMPLETED |
 | 15. Verified release | COMPLETED. PHONE INSTALL AWAITS USER CONFIRMATION |
-| 16. Handover | PENDING |
+| 16. Handover | COMPLETED |

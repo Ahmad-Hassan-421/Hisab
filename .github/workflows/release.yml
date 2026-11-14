@@ -16,6 +16,8 @@ jobs:
   version:
     name: Verify the release tag
     runs-on: ubuntu-24.04
+    outputs:
+      needs_release: ${{ steps.existing.outputs.needs_release }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -27,13 +29,34 @@ jobs:
         run: |
           [[ "$GITHUB_REF" =~ ^refs/tags/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo 'Select or push a stable vMAJOR.MINOR.PATCH tag.' >&2; exit 1; }
           git merge-base --is-ancestor "$GITHUB_SHA" "refs/remotes/origin/$DEFAULT_BRANCH" || { echo 'Tag must point to a commit on the default branch.' >&2; exit 1; }
+      - name: Check whether this tag already has a published release
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=$(curl --silent --show-error --retry 3 --max-time 15 \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'Accept: application/vnd.github+json' \
+            --output "$RUNNER_TEMP/hisab-release-status.json" --write-out '%{http_code}' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME")
+          case "$status" in
+            200)
+              jq -e '.draft == false and .prerelease == false' "$RUNNER_TEMP/hisab-release-status.json" >/dev/null
+              echo 'This tag is already published.'
+              echo 'needs_release=false' >> "$GITHUB_OUTPUT"
+              ;;
+            404) echo 'needs_release=true' >> "$GITHUB_OUTPUT" ;;
+            *) echo "Release lookup failed with HTTP $status." >&2; exit 1 ;;
+          esac
 
   android:
     needs: version
+    if: needs.version.outputs.needs_release == 'true'
     uses: ./.github/workflows/android-ci.yml
 
   backend:
     needs: version
+    if: needs.version.outputs.needs_release == 'true'
     uses: ./.github/workflows/backend-ci.yml
 
   build:
