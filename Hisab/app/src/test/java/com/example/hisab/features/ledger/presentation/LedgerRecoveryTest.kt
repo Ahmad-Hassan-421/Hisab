@@ -93,6 +93,9 @@ class LedgerRecoveryTest {
         )
         try {
             runCurrent()
+            assertTrue(viewModel.uiState.value.hasSettledRecords)
+            assertFalse(viewModel.uiState.value.showClearRecordsDialog)
+            viewModel.requestClearRecords()
             assertTrue(viewModel.uiState.value.showClearRecordsDialog)
             viewModel.dismissClearRecordsDialog()
             viewModel.clearRecords()
@@ -104,6 +107,7 @@ class LedgerRecoveryTest {
             runCurrent()
             ledger.entries.value = settled
             runCurrent()
+            assertTrue(viewModel.uiState.value.showClearRecordsDialog)
             viewModel.clearRecords()
             viewModel.clearRecords()
             runCurrent()

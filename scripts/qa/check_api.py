@@ -178,6 +178,11 @@ def main():
         invalid_batch = [entry, {**entry, "amount": -1, "clientEntryId": str(uuid.uuid4())}]
         expect("reject entire invalid batch", 400, "POST", "/entries/batch", a, {"entries": invalid_batch})
         check("invalid batch leaves ledger empty", request("GET", f"/entries?groupId={gid}", a) == (200, []))
+        unsupported = {**entry, "type": "UNKNOWN", "clientEntryId": str(uuid.uuid4())}
+        expect("reject unsupported transaction type", 400, "POST", "/entries", a, unsupported)
+        batch = [{**entry, "clientEntryId": str(uuid.uuid4())}, unsupported]
+        expect("reject batch containing an unsupported transaction type", 400, "POST", "/entries/batch", a, {"entries": batch})
+        check("unsupported transaction types leave the ledger empty", request("GET", f"/entries?groupId={gid}", a) == (200, []))
     created = expect("create expense", 201, "POST", "/entries", a, entry)
     eid = created["id"]
     repayment = {**entry, "debtorId": aid, "creditorId": bid, "type": "REPAYMENT"}

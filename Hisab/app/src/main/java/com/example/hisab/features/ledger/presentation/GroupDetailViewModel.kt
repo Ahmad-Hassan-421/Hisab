@@ -59,6 +59,7 @@ data class GroupDetailUiState(
     val isUpdatingLedger: Boolean = false,
     val ledgerFormError: String? = null,
     val ledgerNeedsRefresh: Boolean = false,
+    val hasSettledRecords: Boolean = false,
     val showClearRecordsDialog: Boolean = false,
     val clearRecordsError: String? = null,
     val isSendingRequest: Boolean = false,
@@ -114,7 +115,7 @@ class GroupDetailViewModel @Inject constructor(
                 if (group == null) {
                     _uiState.update {
                         it.copy(isLoading = false, isRefreshing = false, group = null, entries = emptyList(), members = emptyList(),
-                            showClearRecordsDialog = false, loadFailure = AppFailure.MISSING)
+                            hasSettledRecords = false, showClearRecordsDialog = false, loadFailure = AppFailure.MISSING)
                     }
                     return@launch
                 }
@@ -145,8 +146,7 @@ class GroupDetailViewModel @Inject constructor(
     }
 
     private suspend fun observeBalances(users: List<User>, userId: String) {
-        var wasSettled = _uiState.value.entries.isNotEmpty() &&
-            _uiState.value.members.all { it.totalDebt.signum() == 0 && it.totalReceive.signum() == 0 }
+        var wasSettled = _uiState.value.hasSettledRecords.takeIf { _uiState.value.entries.isNotEmpty() }
         hisabRepository.getEntriesForGroup(groupId).collect { entries ->
             if (sessionManager.currentUserId.value != userId) return@collect
             val pairBalances = LedgerAmounts.netByMember(entries)
@@ -163,7 +163,8 @@ class GroupDetailViewModel @Inject constructor(
                 entries = entries, 
                 isLoading = false,
                 isRefreshing = false,
-                showClearRecordsDialog = allClear && (!wasSettled || it.showClearRecordsDialog)
+                hasSettledRecords = allClear,
+                showClearRecordsDialog = allClear && (wasSettled == false || it.showClearRecordsDialog)
             ) }
             wasSettled = allClear
         }
@@ -351,6 +352,14 @@ class GroupDetailViewModel @Inject constructor(
     fun dismissClearRecordsDialog() {
         if (_uiState.value.isUpdatingLedger) return
         _uiState.update { it.copy(showClearRecordsDialog = false, clearRecordsError = null) }
+    }
+
+    fun requestClearRecords() {
+        _uiState.update { state ->
+            if (state.hasSettledRecords && !state.isUpdatingLedger && !state.isRefreshing && !state.ledgerNeedsRefresh) {
+                state.copy(showClearRecordsDialog = true)
+            } else state
+        }
     }
 
     fun clearRecords() {

@@ -1,0 +1,15 @@
+# Hisab final regression
+
+The ledger review checked fixed precision, the remainder from dividing a shared expense, the payer’s included share, balances between individual members, exact and partial repayments, legacy decimal rounding, and concurrent writes. The Android JVM tests cover these calculations; the API tests exercise the database-backed entry and repayment rules.
+
+The backend previously accepted an arbitrary transaction type and could use that entry in a balance. It now accepts `EXPENSE`, `DIRECT_DEBT`, and `REPAYMENT` for new writes, including batches. A legacy request that omits the type still defaults to an expense. The extended API suite verified that an unrecognized type returns HTTP 400 and that a batch containing it leaves the ledger empty.
+
+On the first C51 regression, Hisab recorded PKR 1,234.567, showed the amount and note in the matching history, and showed zero outstanding after the full repayment. It prompted to clear the same settled records after a cold restart. The app now prompts when an outstanding balance becomes settled. An already settled Hisab opens with its history visible and offers a separate Clear settled records action.
+
+The fixed C51 QA build passed all six ledger walkthrough checks. The debt and its note matched the API record, the full repayment settled the balance, and cold restart retained the session, group, and history without reopening the prompt. Clear settled records presented a confirmation, and after confirmation both Android and the API showed an empty QA history.
+
+The backend passed three JVM tests and 93 API checks on disposable MongoDB. Those checks included session expiration, invalid requests, correlated errors, multipart uploads, transaction rollback and concurrency, settlement rules, and rejection of unsupported transaction types. The backend production distribution built locally. OSV reported no findings for its 115 resolved runtime packages. Workflow syntax and the repository secret scan passed.
+
+Android passed 34 JVM tests, lint with zero errors and 100 warnings, and QA debug, instrumented test, and unsigned release builds. The local Gradle instrumentation harness reported a process crash before running tests on the resource-constrained emulator. Running the rebuilt APK and test directly through AndroidJUnitRunner passed the Room upgrade test, including preservation of the exact PKR 1,234.567 record. The installed production app was not used for this test.
+
+Earlier device checks covered Home creation, refresh and recovery, navigation, dark mode and larger text, avatar rendering, and update progress and checksum verification. The QA installation used disposable accounts and data. The production app stayed at 1.0 build 1. There is no transaction-edit UI. Deliberately filling the device’s storage, quantitative animation profiling, and delivery through the existing production Update button were outside the verified results.

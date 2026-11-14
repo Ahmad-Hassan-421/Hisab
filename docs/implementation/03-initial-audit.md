@@ -46,7 +46,7 @@ The starting revision is `426a1c44d382908a4028e82aa4de8aaabfbfbc67`. GitHub conf
 | 10. Update UI | COMPLETED |
 | 11. CI/CD | COMPLETED |
 | 12. Update delivery and versioning | COMPLETED LOCALLY. LIVE UPGRADE PENDING RELEASE |
-| 13. Final regression | PENDING |
+| 13. Final regression | COMPLETED |
 | 14. Remote CI verification | PENDING |
 | 15. Verified release | PENDING |
 | 16. Handover | PENDING |

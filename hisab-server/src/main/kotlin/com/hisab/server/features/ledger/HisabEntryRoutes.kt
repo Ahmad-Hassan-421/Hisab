@@ -35,6 +35,7 @@ data class CreateEntryRequest(
 @Serializable data class CreateBatchEntryRequest(val entries: List<CreateEntryRequest>)
 
 private const val REPAYMENT = "REPAYMENT"
+private val entryTypes = setOf("EXPENSE", "DIRECT_DEBT", REPAYMENT)
 private const val AMOUNT_SCALE = 3
 private val maxAmount = BigDecimal("1000000000")
 
@@ -48,6 +49,7 @@ private fun CreateEntryRequest.canRecordEntryFor(userId: String, group: HisabGro
     userId in group.members || (type == REPAYMENT && userId in group.exMembers)
 
 private fun CreateEntryRequest.toDocument(actor: String): HisabEntryDocument {
+    if (type !in entryTypes) throw RequestFailure(HttpStatusCode.BadRequest, "Invalid ledger entry type")
     val decimal = amount.content.toBigDecimalOrNull()
     val requiresLedgerPrecision = clientEntryId != null || type == REPAYMENT
     if (decimal == null || decimal.signum() <= 0 || decimal > maxAmount ||

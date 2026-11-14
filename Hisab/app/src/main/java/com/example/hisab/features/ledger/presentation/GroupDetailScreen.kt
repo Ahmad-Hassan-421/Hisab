@@ -347,6 +347,11 @@ fun GroupDetailScreen(
                             TextButton(enabled = !uiState.isLeaving, onClick = { showInviteDialog = true }) {
                                 Text("Invite member")
                             }
+                            if (uiState.hasSettledRecords) {
+                                TextButton(enabled = canWrite && !uiState.ledgerNeedsRefresh, onClick = viewModel::requestClearRecords) {
+                                    Text("Clear settled records")
+                                }
+                            }
                         }
                     }
                     item {
