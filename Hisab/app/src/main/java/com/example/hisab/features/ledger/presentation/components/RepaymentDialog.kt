@@ -1,5 +1,8 @@
 package com.example.hisab.features.ledger.presentation.components
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -38,9 +41,9 @@ fun RepaymentDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
-        title = { Text(if (mode == 0) "Record Repayment" else "Enter Repayment") },
+        title = { Text(if (mode == 0) "Record repayment" else "Enter repayment") },
         text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                 if (mode == 0) {
                     if (debtors.isNotEmpty()) {
                         Button(onClick = { mode = 1 }, modifier = Modifier.fillMaxWidth()) { Text("Everyone paid Same") }
@@ -88,36 +91,7 @@ fun RepaymentDialog(
                         }
                     }
                 } else {
-                    var expanded by remember { mutableStateOf(false) }
-                    
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = !expanded },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        OutlinedTextField(
-                            value = counterparties.find { it.user.id == selectedUserId }?.user?.name ?: "Select a member",
-                            onValueChange = {},
-                            readOnly = true,
-                            modifier = Modifier.fillMaxWidth().menuAnchor(),
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            counterparties.forEach { member ->
-                                DropdownMenuItem(
-                                    text = { Text(member.user.name) },
-                                    onClick = {
-                                        selectedUserId = member.user.id
-                                        expanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
+                    LedgerMemberPicker(counterparties, selectedUserId) { selectedUserId = it }
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = amountText,

@@ -25,3 +25,13 @@ The screen keeps the existing loading, recovery, and refresh states. It refreshe
 The updated QA APK built successfully, 27 JVM tests passed, and lint reported zero errors and 97 warnings. A controlled delayed-response test verified that an empty account appears only after the server returns an empty list. The device snapshots did not capture the transient skeleton. On the connected C51, the isolated QA app opened the create form from an empty account and returned to Home. A refresh displayed 10 fixture groups including a long title. When the fixture group endpoint failed, Home recovered from a failed initial fetch and retained the loaded list through a later failure and retry.
 
 The C51 also kept the group count and create action reachable in compact landscape with dark mode and 145% text. On the final APK the QA run selected dark mode in Settings, returned to Home using the app's Back button, opened the populated account's create form, returned to Home, and restored the phone's original text size.
+
+## Hisab details
+
+The detail screen places the full Hisab name, action buttons, and member balances in one scrolling view. Action labels wrap on smaller screens. Each member card labels debts and receivables separately and identifies former members. Transaction history starts with the current pair balance, shows repayments and debts in date order, and displays localized digit grouping with three decimal places. A settled pair now says “No outstanding balance.” Presentation does not round or modify ledger values in storage.
+
+A shared member picker opens inline in expense, debt, and repayment forms. The phone test reproduced a failure opening the former debt dropdown; the inline control gives each member a labeled selection target in the form. Forms can scroll when the screen or keyboard leaves less space.
+
+The disposable API regression passed all 90 checks before and after the presentation changes. It covers creating and reading groups and entries, invitations, exact repayment, duplicate submission, and deleting settled history. The existing ledger routes do not implement editing a posted entry.
+
+The final Android debug build and lint passed, as did all 29 JVM tests. The C51 QA app created and opened an empty Hisab in an earlier pass. With the final member picker, it recorded PKR 1,234.567, showed the matching transaction note and balance, recorded the full repayment, and showed a zero balance with both entries retained after declining deletion. The API regression separately verified deletion of settled history.

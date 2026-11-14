@@ -1,5 +1,8 @@
 package com.example.hisab.features.ledger.presentation.components
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -25,21 +28,21 @@ fun IOweHimDialog(
     var amountText by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedUserId by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
     val amount = LedgerAmounts.parseAmount(amountText)
     val invalidAmount = amountText.isNotBlank() && amount == null
 
     val otherMembers = remember(members, currentUserId) {
         members.filter { it.user.id != currentUserId }
     }
+    val canSubmit = otherMembers.any { it.user.id == selectedUserId } && amount != null
 
     AlertDialog(
         onDismissRequest = {
             if (!isLoading) onDismiss()
         },
-        title = { Text("I Owe Someone") },
+        title = { Text("Record debt") },
         text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                 Text(
                     "Select the member you owe money to and enter the details.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -53,36 +56,7 @@ fun IOweHimDialog(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    OutlinedTextField(
-                        value = otherMembers.find { it.user.id == selectedUserId }?.user?.name ?: "Select a member",
-                        onValueChange = {},
-                        readOnly = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        otherMembers.forEach { member ->
-                            DropdownMenuItem(
-                                text = { Text(member.user.name) },
-                                onClick = {
-                                    selectedUserId = member.user.id
-                                    expanded = false
-                                }
-                            )
-                        }
-                    }
-                }
+                LedgerMemberPicker(otherMembers, selectedUserId) { selectedUserId = it }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -111,13 +85,12 @@ fun IOweHimDialog(
             }
         },
         confirmButton = {
-            val isValid = otherMembers.any { it.user.id == selectedUserId } && amount != null && !isLoading
             TextButton(
                 onClick = {
                     if (onReload != null) onReload()
-                    else if (amount != null) onSubmit(selectedUserId, amount, description.trim().ifEmpty { "I owe him" })
+                    else if (amount != null) onSubmit(selectedUserId, amount, description.trim().ifEmpty { "Direct debt" })
                 },
-                enabled = !isLoading && (onReload != null || isValid)
+                enabled = !isLoading && (onReload != null || canSubmit)
             ) {
                 ActionLabel(if (onReload != null) "Reload Hisab" else "Confirm", "Saving…", isLoading)
             }

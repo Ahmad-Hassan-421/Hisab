@@ -1,5 +1,8 @@
 package com.example.hisab.features.ledger.presentation.components
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -32,9 +35,9 @@ fun AddAmountDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
-        title = { Text(if (mode == 0) "Add Amount" else if (mode == 1) "Split to All" else "Specific Person") },
+        title = { Text(if (mode == 0) "Add expense" else if (mode == 1) "Split expense" else "Expense for one member") },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 if (mode == 0) {
                     Button(onClick = { mode = 1 }, modifier = Modifier.fillMaxWidth()) {
                         Text("Split to all")
@@ -67,36 +70,7 @@ fun AddAmountDialog(
                         Spacer(modifier = Modifier.height(16.dp))
                         Text("Select Debtor:")
                         val otherMembers = members.filter { it.user.id != currentUserId }
-                        var expanded by remember { mutableStateOf(false) }
-                        
-                        ExposedDropdownMenuBox(
-                            expanded = expanded,
-                            onExpandedChange = { expanded = !expanded },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            OutlinedTextField(
-                                value = otherMembers.find { it.user.id == selectedUserId }?.user?.name ?: "Select a member",
-                                onValueChange = {},
-                                readOnly = true,
-                                modifier = Modifier.fillMaxWidth().menuAnchor(),
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
-                            )
-                            ExposedDropdownMenu(
-                                expanded = expanded,
-                                onDismissRequest = { expanded = false }
-                            ) {
-                                otherMembers.forEach { member ->
-                                    DropdownMenuItem(
-                                        text = { Text(member.user.name) },
-                                        onClick = {
-                                            selectedUserId = member.user.id
-                                            expanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
+                        LedgerMemberPicker(otherMembers, selectedUserId) { selectedUserId = it }
                     }
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
