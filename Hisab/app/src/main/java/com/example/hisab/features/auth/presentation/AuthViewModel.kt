@@ -8,7 +8,6 @@ import com.example.hisab.features.auth.data.AuthResponse
 import com.example.hisab.features.auth.data.LoginRequest
 import com.example.hisab.features.auth.data.RegisterRequest
 import com.example.hisab.features.profile.domain.UserRepository
-import com.example.hisab.util.Constants
 import com.example.hisab.util.AppFailure
 import com.example.hisab.util.FailureReporter
 import com.example.hisab.util.SessionManager
@@ -197,17 +196,11 @@ class AuthViewModel @Inject constructor(
 
     private suspend fun establishSession(response: AuthResponse) {
         val dto = response.user
-        val rawPic = dto.profilePicUrl
-        val finalPic = if (rawPic.isNullOrBlank() || rawPic.endsWith("default_profile.png")) {
-            Constants.DEFAULT_GOOGLE_AVATAR_URL
-        } else {
-            rawPic
-        }
         val user = User(
             id = dto.id,
             name = dto.name,
             email = dto.email,
-            profilePicUrl = finalPic,
+            profilePicUrl = dto.profilePicUrl.orEmpty(),
             themePreference = dto.themePreference ?: "system",
             role = dto.role ?: "user",
             uniqueId = dto.uniqueId.orEmpty(),

@@ -42,7 +42,7 @@ The starting revision is `426a1c44d382908a4028e82aa4de8aaabfbfbc67`. GitHub conf
 | 6. Refresh and synchronization | COMPLETED |
 | 7. Home refinement | COMPLETED |
 | 8. Hisab detail refinement | COMPLETED |
-| 9. Profile avatars | PENDING |
+| 9. Profile avatars | COMPLETED |
 | 10. Update UI | PENDING |
 | 11. CI/CD | PENDING |
 | 12. Update delivery and versioning | PENDING |

@@ -35,3 +35,9 @@ A shared member picker opens inline in expense, debt, and repayment forms. The p
 The disposable API regression passed all 90 checks before and after the presentation changes. It covers creating and reading groups and entries, invitations, exact repayment, duplicate submission, and deleting settled history. The existing ledger routes do not implement editing a posted entry.
 
 The final Android debug build and lint passed, as did all 29 JVM tests. The C51 QA app created and opened an empty Hisab in an earlier pass. With the final member picker, it recorded PKR 1,234.567, showed the matching transaction note and balance, recorded the full repayment, and showed a zero balance with both entries retained after declining deletion. The API regression separately verified deletion of settled history.
+
+## Profile pictures
+
+Profile, member cards, and invitations share a circular avatar. It uses a centered icon with theme colors for the legacy default, missing URLs, and failed loads. The legacy default no longer needs a network request. Custom pictures keep their aspect ratio; the frame crops the edges. When uploading a picture, the existing crop screen lets the user position a square crop, then writes JPEG with a maximum dimension of 512 pixels. Upload no longer writes an unused persistent file. Invite notifications reuse the app image loader and decode at 128 pixels.
+
+Two unit tests cover default, missing, portable upload, and invalid image sources. The C51 QA check compared rendered Profile pixels after loading a default avatar, a non-square test upload, a missing image, and a failed image. The custom image appeared, and both missing and failed images matched the default. The fixture was uploaded through the API; the native picker crop was not exercised in that check.

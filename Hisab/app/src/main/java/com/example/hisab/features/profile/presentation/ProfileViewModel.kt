@@ -179,6 +179,10 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    fun reportImageSelectionError() {
+        _uiState.update { it.copy(error = "Couldn’t open that picture. Choose a different image and try again.") }
+    }
+
     fun clearMessages() {
         _uiState.update { it.copy(error = null, successMessage = null) }
     }

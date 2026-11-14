@@ -1,8 +1,6 @@
 package com.example.hisab.features.invitations.presentation
 
 import android.text.format.DateUtils
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,21 +11,16 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.SubcomposeAsyncImage
 import com.example.hisab.features.invitations.domain.HisabRequest
-import com.example.hisab.util.Constants
+import com.example.hisab.ui.components.HisabAvatar
 import com.example.hisab.ui.components.LoadFailure
 import com.example.hisab.ui.components.ListSkeleton
 import com.example.hisab.ui.components.FeedbackEffect
@@ -158,39 +151,9 @@ fun RequestCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Inviter Avatar with fallback
-                val avatarUrl = (request.profilePictureUrl ?: request.senderProfilePicUrl).ifBlank { Constants.DEFAULT_GOOGLE_AVATAR_URL }
-
-                SubcomposeAsyncImage(
-                    model = Constants.profileImageUrl(avatarUrl),
-                    contentDescription = "${request.senderName}'s profile picture",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(CircleShape)
-                        .border(1.5.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
-                    loading = {
-                        Surface(
-                            modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    },
-                    error = {
-                        androidx.compose.foundation.Image(
-                            painter = androidx.compose.ui.res.painterResource(id = com.example.hisab.R.drawable.ic_default_google_avatar),
-                            contentDescription = "Default avatar",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
+                HisabAvatar(
+                    url = request.profilePictureUrl?.takeIf { it.isNotBlank() } ?: request.senderProfilePicUrl,
+                    modifier = Modifier.size(52.dp)
                 )
 
                 Column(

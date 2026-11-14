@@ -2,7 +2,6 @@ package com.example.hisab.features.ledger.presentation.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -10,16 +9,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import com.example.hisab.R
 import com.example.hisab.features.ledger.presentation.DebtDetail
 import com.example.hisab.features.ledger.presentation.MemberBalanceUI
-import com.example.hisab.util.Constants
+import com.example.hisab.ui.components.HisabAvatar
 
 @Composable
 fun MemberBalanceCard(
@@ -34,12 +28,7 @@ fun MemberBalanceCard(
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                val fallback = painterResource(R.drawable.ic_default_google_avatar)
-                AsyncImage(
-                    model = Constants.profileImageUrl(balance.user.profilePicUrl),
-                    contentDescription = null, placeholder = fallback, error = fallback,
-                    modifier = Modifier.size(40.dp).clip(CircleShape), contentScale = ContentScale.Crop
-                )
+                HisabAvatar(balance.user.profilePicUrl, Modifier.size(40.dp))
                 Column(Modifier.padding(horizontal = 12.dp).weight(1f)) {
                     Text(balance.user.name, style = MaterialTheme.typography.titleMedium)
                     val subtitle = when {

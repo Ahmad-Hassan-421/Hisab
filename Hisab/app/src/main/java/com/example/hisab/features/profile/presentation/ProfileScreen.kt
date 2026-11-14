@@ -1,7 +1,5 @@
 package com.example.hisab.features.profile.presentation
 
-import com.example.hisab.util.Constants
-
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -27,8 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import coil.compose.AsyncImage
-import androidx.compose.ui.layout.ContentScale
+import android.graphics.Bitmap
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
@@ -55,6 +52,7 @@ import com.example.hisab.ui.components.LoadFailure
 import com.example.hisab.ui.components.ActionLabel
 import com.example.hisab.ui.components.AlertKind
 import com.example.hisab.ui.components.HisabAlert
+import com.example.hisab.ui.components.HisabAvatar
 import com.example.hisab.ui.components.FeedbackEffect
 import com.example.hisab.ui.components.FeedbackKind
 import com.example.hisab.ui.components.ProfileSkeleton
@@ -180,7 +178,9 @@ fun ProfileScreen(
     val cropImageLauncher = rememberLauncherForActivityResult(com.canhub.cropper.CropImageContract()) { result ->
         if (result.isSuccessful) {
             val uriContent = result.uriContent
-            uriContent?.let(viewModel::uploadProfilePicture)
+            if (uriContent != null) viewModel.uploadProfilePicture(uriContent) else viewModel.reportImageSelectionError()
+        } else if (result.error != null) {
+            viewModel.reportImageSelectionError()
         }
     }
 
@@ -192,7 +192,12 @@ fun ProfileScreen(
                 fixAspectRatio = true,
                 aspectRatioX = 1,
                 aspectRatioY = 1,
-                cropShape = com.canhub.cropper.CropImageView.CropShape.OVAL
+                cropShape = com.canhub.cropper.CropImageView.CropShape.OVAL,
+                outputCompressFormat = Bitmap.CompressFormat.JPEG,
+                outputCompressQuality = 88,
+                outputRequestWidth = 512,
+                outputRequestHeight = 512,
+                outputRequestSizeOptions = com.canhub.cropper.CropImageView.RequestSizeOptions.RESIZE_INSIDE
             ))
             cropImageLauncher.launch(options)
         }
@@ -268,24 +273,15 @@ fun ProfileScreen(
                 contentAlignment = Alignment.BottomEnd,
                 modifier = Modifier.padding(8.dp)
             ) {
-                Surface(
+                HisabAvatar(
+                    url = uiState.profilePicUrl,
+                    description = "Profile picture",
                     modifier = Modifier
                         .size(120.dp)
-                        .clip(CircleShape)
                         .clickable(enabled = !uiState.isUploading && !uiState.isSaving) {
                             imagePickerLauncher.launch("image/*")
-                        },
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                ) {
-                    AsyncImage(
-                        model = Constants.profileImageUrl(uiState.profilePicUrl),
-                        contentDescription = "Profile Picture",
-                        placeholder = androidx.compose.ui.res.painterResource(id = com.example.hisab.R.drawable.ic_default_google_avatar),
-                        error = androidx.compose.ui.res.painterResource(id = com.example.hisab.R.drawable.ic_default_google_avatar),
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                }
+                        }
+                )
                 
                 Surface(
                     modifier = Modifier

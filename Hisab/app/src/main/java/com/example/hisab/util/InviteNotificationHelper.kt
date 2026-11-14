@@ -10,7 +10,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import coil.ImageLoader
+import coil.imageLoader
 import coil.request.ImageRequest
 import com.example.hisab.R
 import com.example.hisab.features.invitations.domain.HisabRequest
@@ -56,7 +56,9 @@ class InviteNotificationHelper @Inject constructor(
     fun showInviteNotification(request: HisabRequest) {
         scope.launch {
             try {
-                val avatarBitmap = loadAvatarBitmap(request.profilePictureUrl ?: request.senderProfilePicUrl)
+                val avatarBitmap = loadAvatarBitmap(
+                    request.profilePictureUrl?.takeIf { it.isNotBlank() } ?: request.senderProfilePicUrl
+                )
                 postNotification(request, avatarBitmap)
             } catch (e: Exception) {
                 failures.report("Show invite notification", e)
@@ -68,13 +70,13 @@ class InviteNotificationHelper @Inject constructor(
         if (url.isNullOrBlank()) return null
         return try {
             withTimeoutOrNull(3000L) {
-                val fullUrl = Constants.profileImageUrl(url)
-                val imageLoader = ImageLoader(context)
+                val fullUrl = Constants.profileImageUrl(url) ?: return@withTimeoutOrNull null
                 val imageRequest = ImageRequest.Builder(context)
                     .data(fullUrl)
+                    .size(128)
                     .allowHardware(false)
                     .build()
-                val result = imageLoader.execute(imageRequest)
+                val result = context.imageLoader.execute(imageRequest)
                 (result.drawable as? BitmapDrawable)?.bitmap
             }
         } catch (e: Exception) {
