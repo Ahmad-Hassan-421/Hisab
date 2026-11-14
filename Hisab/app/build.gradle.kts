@@ -50,6 +50,7 @@ android {
         debug {
             val origin = debugOrigin.get()
             buildConfigField("String", "API_BASE_URL", "\"$origin\"")
+            buildConfigField("boolean", "UPDATE_QA", qaPackage.toString())
             manifestPlaceholders["allowCleartext"] = (URI(origin).scheme == "http").toString()
             if (qaPackage) {
                 require(URI(origin).host in setOf("127.0.0.1", "localhost", "10.0.2.2")) {
@@ -61,6 +62,7 @@ android {
         release {
             val origin = releaseOrigin.getOrElse("https://hisab.invalid/")
             buildConfigField("String", "API_BASE_URL", "\"$origin\"")
+            buildConfigField("boolean", "UPDATE_QA", "false")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

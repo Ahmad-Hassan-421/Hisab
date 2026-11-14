@@ -12,7 +12,8 @@ import android.provider.Settings
 import androidx.annotation.MainThread
 import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
-import com.example.hisab.BuildConfig
+import androidx.annotation.WorkerThread
+import com.example.hisab.features.settings.data.VerifiedUpdate
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -25,8 +26,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.File
+import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -56,27 +57,23 @@ class ApkUpdateManager @Inject constructor(
     private var downloadId: Long? = null
 
     @MainThread
-    fun startDownload(downloadUrl: String, version: String, expectedSize: Long?) {
+    fun startDownload(release: VerifiedUpdate) {
         if (job?.isActive == true || _status.value is UpdateDownloadStatus.Ready ||
             _status.value is UpdateDownloadStatus.InstallerOpened) return
-        if (!allowedDownloadUrl(downloadUrl, BuildConfig.DEBUG)) {
-            _status.value = UpdateDownloadStatus.Error("This update doesn’t have a supported download link.")
-            return
-        }
-        _status.value = UpdateDownloadStatus.Downloading(0, expectedSize)
+        _status.value = UpdateDownloadStatus.Downloading(0, release.sizeBytes)
         job = scope.launch {
             try {
                 removeDownload()
                 val directory = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
                     ?: throw UpdateProblem("Update storage is unavailable. Try again later.")
-                if (expectedSize != null && expectedSize > directory.usableSpace) {
+                if (release.sizeBytes > directory.usableSpace || release.sizeBytes > context.filesDir.usableSpace) {
                     throw UpdateProblem("There isn’t enough storage for the update. Free some space and retry.")
                 }
                 val filename = "hisab-${java.util.UUID.randomUUID()}.apk"
                 val target = File(directory, "updates")
                 if (!target.isDirectory && !target.mkdirs()) throw UpdateProblem("Update storage is unavailable. Try again later.")
                 val file = File(target, filename)
-                val request = DownloadManager.Request(Uri.parse(downloadUrl)).apply {
+                val request = DownloadManager.Request(Uri.parse(release.downloadUrl)).apply {
                     setTitle("Hisab update")
                     setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "updates/$filename")
                     // Android should open the installer only after in-app verification and a user action.
@@ -89,14 +86,15 @@ class ApkUpdateManager @Inject constructor(
                     val query = withContext(Dispatchers.IO) { readDownload(id) }
                     when (query.state) {
                         DownloadManager.STATUS_PENDING, DownloadManager.STATUS_RUNNING ->
-                            _status.value = UpdateDownloadStatus.Downloading(query.bytes, query.total ?: expectedSize)
+                            _status.value = UpdateDownloadStatus.Downloading(query.bytes, query.total ?: release.sizeBytes)
                         DownloadManager.STATUS_PAUSED ->
                             _status.value = UpdateDownloadStatus.Paused(pausedMessage(query.reason))
                         DownloadManager.STATUS_FAILED -> throw UpdateProblem(downloadFailureMessage(query.reason))
                         DownloadManager.STATUS_SUCCESSFUL -> {
                             _status.value = UpdateDownloadStatus.Preparing
-                            withContext(Dispatchers.IO) { verifyPackage(file, expectedSize) }
-                            _status.value = UpdateDownloadStatus.Ready(file, version)
+                            val verified = withContext(Dispatchers.IO) { stageVerifiedPackage(file, release) }
+                            removeDownload()
+                            _status.value = UpdateDownloadStatus.Ready(verified, release.versionName)
                             return@launch
                         }
                         else -> throw UpdateProblem("The download is no longer available. Please try again.")
@@ -117,7 +115,7 @@ class ApkUpdateManager @Inject constructor(
 
     @MainThread
     fun cancel() {
-        if (job?.isActive != true) return
+        if (_status.value !is UpdateDownloadStatus.Downloading && _status.value !is UpdateDownloadStatus.Paused) return
         job?.cancel()
         job = null
         removeDownload()
@@ -172,10 +170,39 @@ class ApkUpdateManager @Inject constructor(
             )
         } ?: throw UpdateProblem("The download was interrupted or removed. Please try again.")
 
-    @Suppress("DEPRECATION")
-    private fun verifyPackage(file: File, expectedSize: Long?) {
-        if (!file.isFile || file.length() == 0L || (expectedSize != null && file.length() != expectedSize)) {
+    @WorkerThread
+    private fun stageVerifiedPackage(source: File, release: VerifiedUpdate): File {
+        val directory = File(context.filesDir, "updates")
+        if (!directory.isDirectory && !directory.mkdirs()) {
+            throw UpdateProblem("Update storage is unavailable. Try again later.")
+        }
+        val ready = File(directory, "hisab-update.apk")
+        if (source.length() != release.sizeBytes) {
             throw UpdateProblem("The downloaded file is incomplete. Please download it again.")
+        }
+        if (release.sizeBytes > directory.usableSpace) {
+            throw UpdateProblem("There isn’t enough storage for the update. Free some space and retry.")
+        }
+        val candidate = File.createTempFile("hisab-", ".apk", directory)
+        try {
+            source.copyTo(candidate, overwrite = true)
+            verifyPackage(candidate, release)
+            if (!candidate.renameTo(ready)) {
+                throw UpdateProblem("Couldn’t prepare the update. Please download it again.")
+            }
+            return ready
+        } finally {
+            candidate.delete()
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun verifyPackage(file: File, release: VerifiedUpdate) {
+        if (!file.isFile || file.length() != release.sizeBytes) {
+            throw UpdateProblem("The downloaded file is incomplete. Please download it again.")
+        }
+        if (!hasExpectedChecksum(file, release.sha256)) {
+            throw UpdateProblem("The update checksum doesn’t match. Please download it again.")
         }
         val manager = context.packageManager
         val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
@@ -186,8 +213,9 @@ class ApkUpdateManager @Inject constructor(
         val currentSigners = installed.signers()?.toSet().orEmpty()
         val updateSigners = candidate.signers()?.toSet().orEmpty()
         if (candidate.packageName != context.packageName || currentSigners.isEmpty() ||
-            currentSigners != updateSigners || PackageInfoCompat.getLongVersionCode(candidate) <=
-            PackageInfoCompat.getLongVersionCode(installed)) {
+            currentSigners != updateSigners || candidate.versionName != release.versionName ||
+            PackageInfoCompat.getLongVersionCode(candidate) != release.versionCode.toLong() ||
+            PackageInfoCompat.getLongVersionCode(candidate) <= PackageInfoCompat.getLongVersionCode(installed)) {
             throw UpdateProblem("This file can’t update the installed Hisab. Check for another release.")
         }
     }
@@ -197,10 +225,18 @@ class ApkUpdateManager @Inject constructor(
     companion object {
         private const val APK_MIME = "application/vnd.android.package-archive"
 
-        internal fun allowedDownloadUrl(value: String, debug: Boolean): Boolean {
-            val url = value.toHttpUrlOrNull() ?: return false
-            if (url.username.isNotEmpty() || url.password.isNotEmpty()) return false
-            return url.isHttps || (debug && url.host in setOf("127.0.0.1", "localhost"))
+        internal fun hasExpectedChecksum(file: File, expected: String): Boolean {
+            val checksum = MessageDigest.getInstance("SHA-256")
+            file.inputStream().use { input ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count == -1) break
+                    checksum.update(buffer, 0, count)
+                }
+            }
+            val actual = checksum.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+            return actual == expected
         }
 
         internal fun pausedMessage(reason: Int) = when (reason) {

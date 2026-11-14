@@ -4,13 +4,14 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.hisab.BuildConfig
-import com.example.hisab.features.settings.data.AppUpdateResponse
+import com.example.hisab.features.settings.data.VerifiedUpdate
 import com.example.hisab.features.settings.domain.UpdateRepository
 import com.example.hisab.util.ApkUpdateManager
 import com.example.hisab.util.FailureReporter
 import com.example.hisab.util.ThemeMode
 import com.example.hisab.util.ThemePreferencesManager
 import com.example.hisab.util.UpdateDownloadStatus
+import com.google.gson.JsonParseException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +26,8 @@ import javax.inject.Inject
 data class SettingsUiState(
     val isCheckingForUpdate: Boolean = false,
     val updateAvailable: Boolean = false,
-    val remoteRelease: AppUpdateResponse? = null,
+    val remoteRelease: VerifiedUpdate? = null,
+    val updateCheckComplete: Boolean = false,
     val currentVersionCode: Int = BuildConfig.VERSION_CODE,
     val currentVersionName: String = BuildConfig.VERSION_NAME,
     val checkError: String? = null
@@ -56,16 +58,17 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(isCheckingForUpdate = true, checkError = null) }
         viewModelScope.launch {
             try {
-                val release = updateRepository.getLatestRelease()
-                require(!release.versionName.isNullOrBlank() && !release.downloadUrl.isNullOrBlank()) {
-                    "Incomplete update metadata"
+                val release = updateRepository.getLatestRelease()?.let {
+                    it.validate(BuildConfig.API_BASE_URL.takeIf { BuildConfig.UPDATE_QA })
+                        ?: throw JsonParseException("Invalid update metadata")
                 }
-                val isNewer = release.isNewerThan(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+                val isNewer = release?.isNewerThan(BuildConfig.VERSION_CODE) == true
                 _uiState.update {
                     it.copy(
                         isCheckingForUpdate = false,
                         updateAvailable = isNewer,
                         remoteRelease = release,
+                        updateCheckComplete = true,
                         checkError = null
                     )
                 }
@@ -78,6 +81,7 @@ class SettingsViewModel @Inject constructor(
                         isCheckingForUpdate = false,
                         updateAvailable = false,
                         remoteRelease = null,
+                        updateCheckComplete = false,
                         checkError = failure.message
                     )
                 }
@@ -85,10 +89,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun startUpdateDownload(release: AppUpdateResponse) {
+    fun startUpdateDownload(release: VerifiedUpdate) {
         val state = _uiState.value
         if (!state.updateAvailable || state.isCheckingForUpdate || state.remoteRelease != release) return
-        apkUpdateManager.startDownload(release.downloadUrl, release.versionName, release.sizeBytes?.takeIf { it > 0 })
+        apkUpdateManager.startDownload(release)
     }
 
     fun installApk(context: Context) {

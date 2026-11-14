@@ -1,26 +1,34 @@
 package com.example.hisab.features.settings.data
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppUpdateResponseTest {
+    private val release = AppUpdateResponse(12, "1.2.0", "Changes",
+        "https://github.com/Ahmad-Hassan-421/Hisab/releases/download/v1.2.0/hisab-v1.2.0.apk",
+        4096, "a".repeat(64))
+
     @Test
-    fun comparesReleaseVersionsByNumericComponent() {
-        assertFalse(release("v1.1.0", 110).isNewerThan("1.1.0", 2))
-        assertFalse(release("v1.9.9", 199).isNewerThan("1.10.0", 3))
-        assertTrue(release("v1.10.0", 1100).isNewerThan("1.9.9", 2))
-        assertFalse(release("v1.1", 11).isNewerThan("1.1.0", 2))
-        assertTrue(release("v1.1.1+build.4", 1114).isNewerThan("1.1.0", 2))
+    fun usesTheActualAndroidVersionCodeForUpdateEligibility() {
+        val verified = checkNotNull(release.validate(null))
+        assertTrue(verified.isNewerThan(11))
+        assertFalse(verified.isNewerThan(12))
+        assertFalse(verified.isNewerThan(13))
     }
 
     @Test
-    fun retainsExplicitNumericBuildTagsAndIgnoresUnrecognizedTags() {
-        assertTrue(release("v3", 3).isNewerThan("1.1.0", 2))
-        assertFalse(release("v2", 2).isNewerThan("1.1.0", 2))
-        assertFalse(release("v1.2.0-rc1", 1201).isNewerThan("1.1.0", 2))
-        assertFalse(release("release-2026-11", 202611).isNewerThan("1.1.0", 2))
+    fun refusesIncompleteMetadataOrPackagesFromADifferentLocation() {
+        assertNull(release.copy(sha256 = null).validate(null))
+        assertNull(release.copy(sizeBytes = -1).validate(null))
+        assertNull(release.copy(versionCode = 0).validate(null))
+        assertNull(release.copy(versionName = "1.2.0-rc1").validate(null))
+        assertNull(release.copy(downloadUrl = release.downloadUrl?.replace("Hisab/", "AnotherApp/")).validate(null))
+        assertNull(release.copy(downloadUrl = release.downloadUrl + "?extra=1").validate(null))
+        val local = release.copy(downloadUrl = "http://127.0.0.1:18093/test.apk")
+        assertNull(local.validate(null))
+        assertNull(local.validate("http://127.0.0.1:18094/"))
+        assertTrue(local.validate("http://127.0.0.1:18093/") != null)
     }
-
-    private fun release(tag: String, code: Int) = AppUpdateResponse(code, tag, "", "")
 }

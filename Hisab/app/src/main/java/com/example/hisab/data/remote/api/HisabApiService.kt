@@ -7,6 +7,7 @@ import com.example.hisab.features.profile.data.*
 import com.example.hisab.features.auth.data.*
 import com.example.hisab.features.settings.data.AppUpdateResponse
 import okhttp3.MultipartBody
+import retrofit2.Response
 import retrofit2.http.*
 
 interface HisabApiService {
@@ -68,5 +69,5 @@ interface HisabApiService {
     ): UploadResponse
 
     @GET("api/releases/latest")
-    suspend fun getLatestRelease(): AppUpdateResponse
+    suspend fun getLatestRelease(): Response<AppUpdateResponse>
 }

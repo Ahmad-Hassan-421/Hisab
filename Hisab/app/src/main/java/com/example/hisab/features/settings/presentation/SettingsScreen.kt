@@ -76,7 +76,7 @@ fun SettingsScreen(onNavigateBack: () -> Unit, viewModel: SettingsViewModel = hi
                     val error = state.checkError
                     if (error != null) {
                         UpdateMessage(error, error = true)
-                    } else if (!state.isCheckingForUpdate && state.remoteRelease != null && available == null) {
+                    } else if (!state.isCheckingForUpdate && state.updateCheckComplete && available == null) {
                         UpdateMessage("Hisab is up to date.")
                     }
                 }
@@ -86,9 +86,7 @@ fun SettingsScreen(onNavigateBack: () -> Unit, viewModel: SettingsViewModel = hi
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         available?.let { release ->
                             Text("Version ${release.versionName} available", style = MaterialTheme.typography.titleMedium)
-                            release.sizeBytes?.takeIf { it > 0 }?.let {
-                                Text("Download size: ${Formatter.formatFileSize(context, it)}")
-                            }
+                            Text("Download size: ${Formatter.formatFileSize(context, release.sizeBytes)}")
                             val notes = release.releaseNotes.orEmpty().trim()
                             Text(notes.take(600).ifBlank { "Release notes aren’t available." }, style = MaterialTheme.typography.bodyMedium)
                         }
@@ -122,7 +120,7 @@ fun SettingsScreen(onNavigateBack: () -> Unit, viewModel: SettingsViewModel = hi
                             UpdateDownloadStatus.Cancelled -> UpdateMessage("Download cancelled.")
                             UpdateDownloadStatus.Idle -> Unit
                         }
-                        if (busy) {
+                        if (download is UpdateDownloadStatus.Downloading || download is UpdateDownloadStatus.Paused) {
                             TextButton(onClick = viewModel::cancelUpdateDownload) { Text("Cancel download") }
                         } else if (available != null && (download is UpdateDownloadStatus.Idle ||
                             download is UpdateDownloadStatus.Error || download is UpdateDownloadStatus.Cancelled)) {

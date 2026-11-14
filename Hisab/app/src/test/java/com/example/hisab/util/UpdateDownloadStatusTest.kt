@@ -6,8 +6,12 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.Rule
+import org.junit.rules.TemporaryFolder
 
 class UpdateDownloadStatusTest {
+    @get:Rule val files = TemporaryFolder()
+
     @Test
     fun progressIsIndeterminateUntilThereIsARealTotal() {
         assertNull(UpdateDownloadStatus.Downloading(1024, null).fraction)
@@ -25,11 +29,12 @@ class UpdateDownloadStatusTest {
     }
 
     @Test
-    fun productionRequiresHttpsAndOnlyDebugAllowsLoopbackHttp() {
-        assertTrue(ApkUpdateManager.allowedDownloadUrl("https://example.invalid/release.apk", false))
-        assertTrue(ApkUpdateManager.allowedDownloadUrl("http://127.0.0.1:18093/test.apk", true))
-        assertFalse(ApkUpdateManager.allowedDownloadUrl("http://127.0.0.1:18093/test.apk", false))
-        assertFalse(ApkUpdateManager.allowedDownloadUrl("http://example.invalid/test.apk", true))
-        assertFalse(ApkUpdateManager.allowedDownloadUrl("file:///test.apk", true))
+    fun updateChecksumRejectsAChangedFileOfTheSameSize() {
+        val apk = files.newFile("candidate.apk")
+        val expected = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        apk.writeText("abc")
+        assertTrue(ApkUpdateManager.hasExpectedChecksum(apk, expected))
+        apk.writeText("abd")
+        assertFalse(ApkUpdateManager.hasExpectedChecksum(apk, expected))
     }
 }

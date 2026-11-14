@@ -23,13 +23,14 @@ import org.slf4j.LoggerFactory
 data class GitHubAsset(
     val name: String,
     @SerialName("browser_download_url") val browserDownloadUrl: String,
-    val size: Long? = null
+    val size: Long? = null,
+    val digest: String? = null
 )
 
 @Serializable
 data class GitHubRelease(
     @SerialName("tag_name") val tagName: String,
-    val body: String = "",
+    val body: String? = null,
     val assets: List<GitHubAsset> = emptyList()
 )
 
@@ -39,15 +40,40 @@ data class AppUpdateResponse(
     val versionName: String,
     val releaseNotes: String,
     val downloadUrl: String,
-    val sizeBytes: Long? = null
+    val sizeBytes: Long,
+    val sha256: String,
+    val required: Boolean
 )
 
 @Serializable
-data class ErrorResponse(
-    val error: String
+internal data class ReleaseManifest(
+    val versionName: String,
+    val versionCode: Int,
+    val applicationId: String,
+    val sizeBytes: Long,
+    val sha256: String
 )
 
-object GitHubReleaseClient {
+private const val releaseBase = "https://github.com/Ahmad-Hassan-421/Hisab/releases/download/"
+private val releaseTag = Regex("v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)")
+private val sha256Pattern = Regex("[a-f0-9]{64}")
+private const val manifestName = "hisab-update.json"
+
+internal fun verifiedRelease(release: GitHubRelease, metadata: ReleaseManifest): AppUpdateResponse? {
+    if (!releaseTag.matches(release.tagName) || metadata.versionName != release.tagName.removePrefix("v") ||
+        metadata.applicationId != "com.example.hisab" || metadata.versionCode !in 1..2_100_000_000 ||
+        metadata.sizeBytes <= 0 || !sha256Pattern.matches(metadata.sha256)) return null
+    val apkName = "hisab-${release.tagName}.apk"
+    val apk = release.assets.singleOrNull { it.name == apkName } ?: return null
+    val url = "$releaseBase${release.tagName}/$apkName"
+    if (apk.browserDownloadUrl != url || apk.size != metadata.sizeBytes || apk.digest != "sha256:${metadata.sha256}") {
+        return null
+    }
+    return AppUpdateResponse(metadata.versionCode, metadata.versionName, release.body.orEmpty().take(4_000), url,
+        metadata.sizeBytes, metadata.sha256, required = false)
+}
+
+private object GitHubReleaseClient {
     private val log = LoggerFactory.getLogger(GitHubReleaseClient::class.java)
     private const val GITHUB_RELEASE_URL = "https://api.github.com/repos/Ahmad-Hassan-421/Hisab/releases/latest"
 
@@ -69,7 +95,7 @@ object GitHubReleaseClient {
         }
     }
 
-    suspend fun fetchLatestRelease(): Pair<HttpStatusCode, Any> {
+    suspend fun fetchLatestRelease(): Pair<HttpStatusCode, AppUpdateResponse?> {
         val githubToken = System.getenv("GITHUB_TOKEN")?.trim()
         return try {
             val response: HttpResponse = httpClient.get(GITHUB_RELEASE_URL) {
@@ -82,33 +108,26 @@ object GitHubReleaseClient {
 
             if (!response.status.isSuccess()) {
                 log.warn("Release provider returned status={}", response.status.value)
-                if (response.status == HttpStatusCode.NotFound) {
-                    HttpStatusCode.NotFound to ErrorResponse("No releases found on GitHub repository")
-                } else {
-                    HttpStatusCode.BadGateway to ErrorResponse("The release service is unavailable")
-                }
+                if (response.status == HttpStatusCode.NotFound) HttpStatusCode.NoContent to null
+                else HttpStatusCode.BadGateway to null
             } else {
                 val release: GitHubRelease = response.body()
-                val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
-                if (apkAsset == null) {
-                    HttpStatusCode.NotFound to ErrorResponse("No APK is available for the latest release")
-                } else {
-                    val parsedVersion = release.tagName.filter { it.isDigit() }.toIntOrNull() ?: 1
-                    val updateResponse = AppUpdateResponse(
-                        versionCode = parsedVersion,
-                        versionName = release.tagName,
-                        releaseNotes = release.body,
-                        downloadUrl = apkAsset.browserDownloadUrl,
-                        sizeBytes = apkAsset.size?.takeIf { it > 0 }
-                    )
-                    HttpStatusCode.OK to updateResponse
-                }
+                val asset = release.assets.singleOrNull { it.name == manifestName }
+                val manifestUrl = "$releaseBase${release.tagName}/$manifestName"
+                if (!releaseTag.matches(release.tagName) || asset?.browserDownloadUrl != manifestUrl ||
+                    (asset.size ?: 0L) !in 1L..4096L) return HttpStatusCode.BadGateway to null
+                val manifest = httpClient.get(manifestUrl)
+                if (!manifest.status.isSuccess()) return HttpStatusCode.BadGateway to null
+                val raw = manifest.bodyAsText()
+                if (raw.length > 4096) return HttpStatusCode.BadGateway to null
+                val update = verifiedRelease(release, jsonConfig.decodeFromString<ReleaseManifest>(raw))
+                if (update == null) HttpStatusCode.BadGateway to null else HttpStatusCode.OK to update
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             log.warn("Release lookup failed ({})", e.javaClass.simpleName)
-            HttpStatusCode.BadGateway to ErrorResponse("The release service is unavailable")
+            HttpStatusCode.BadGateway to null
         }
     }
 }
@@ -116,11 +135,9 @@ object GitHubReleaseClient {
 fun Route.releaseRoutes() {
     val handleLatestRelease: suspend (ApplicationCall) -> Unit = { call ->
         val (status, result) = GitHubReleaseClient.fetchLatestRelease()
-        when (result) {
-            is AppUpdateResponse -> call.respond(status, result)
-            is ErrorResponse -> call.respondFailure(status, result.error)
-            else -> call.respondFailure(HttpStatusCode.InternalServerError, "Request failed")
-        }
+        if (result != null) call.respond(status, result)
+        else if (status == HttpStatusCode.NoContent) call.respond(status)
+        else call.respondFailure(status, "The release service is unavailable")
     }
 
     route("/api/releases") {
