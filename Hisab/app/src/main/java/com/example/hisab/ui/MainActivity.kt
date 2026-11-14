@@ -77,7 +77,8 @@ class MainActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
         installSplashScreen()
-        
+        val initialRoute = if (tokenManager.getUserId() != null) "dashboard" else "login"
+
         setContent {
             val themeMode by themePreferencesManager.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
             val systemInDarkTheme = isSystemInDarkTheme()
@@ -93,7 +94,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    HisabNavHost(startDest = if (tokenManager.getUserId() != null) "dashboard" else "login")
+                    HisabNavHost(startDest = initialRoute)
                 }
             }
         }

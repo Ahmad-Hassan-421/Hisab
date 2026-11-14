@@ -26,6 +26,30 @@ import java.net.ConnectException
 @OptIn(ExperimentalCoroutinesApi::class)
 class DashboardRecoveryTest {
     @Test
+    fun firstLoadDoesNotReportAnEmptyAccountUntilTheServerResponds() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = TestGroups().apply { next = CompletableDeferred() }
+        val session = SessionManager()
+        val viewModel = DashboardViewModel(repository, session, FailureReporter({ true }, {}))
+        try {
+            session.setSession("member", "user")
+            runCurrent()
+            assertTrue(viewModel.uiState.value.isLoading)
+            assertFalse(viewModel.uiState.value.hasLoaded)
+            assertNull(viewModel.uiState.value.failure)
+
+            repository.next.complete(emptyList())
+            runCurrent()
+            assertFalse(viewModel.uiState.value.isLoading)
+            assertTrue(viewModel.uiState.value.hasLoaded)
+            assertTrue(viewModel.uiState.value.groups.isEmpty())
+        } finally {
+            viewModel.cancel()
+            Dispatchers.resetMain()
+        }
+    }
+
+    @Test
     fun switchingAccountsCancelsThePreviousLoadAndClearsItsContent() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = TestGroups()
