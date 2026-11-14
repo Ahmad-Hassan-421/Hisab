@@ -1,0 +1,149 @@
+name: Signed Android release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hisab-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Verify the release tag
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require a stable version tag on the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          [[ "$GITHUB_REF" =~ ^refs/tags/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo 'Select or push a stable vMAJOR.MINOR.PATCH tag.' >&2; exit 1; }
+          git merge-base --is-ancestor "$GITHUB_SHA" "refs/remotes/origin/$DEFAULT_BRANCH" || { echo 'Tag must point to a commit on the default branch.' >&2; exit 1; }
+
+  android:
+    needs: version
+    uses: ./.github/workflows/android-ci.yml
+
+  backend:
+    needs: version
+    uses: ./.github/workflows/backend-ci.yml
+
+  build:
+    name: Build the release APK
+    needs: [android, backend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-read-only: true
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+      - name: Build the unsigned APK with the configured backend origin
+        working-directory: Hisab
+        env:
+          HISAB_RELEASE_API_URL: ${{ vars.HISAB_RELEASE_API_URL }}
+        run: bash ./gradlew --no-daemon assembleRelease
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: hisab-release-unsigned
+          path: Hisab/app/build/outputs/apk/release/app-release-unsigned.apk
+          retention-days: 1
+          if-no-files-found: error
+
+  sign:
+    name: Sign and verify the APK against the installed identity
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: android-release
+    steps:
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: 'build-tools;34.0.0'
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: hisab-release-unsigned
+          path: unsigned
+      - name: Check version and package, sign, and generate integrity metadata
+        env:
+          KEYSTORE_B64: ${{ secrets.HISAB_ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.HISAB_ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.HISAB_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.HISAB_ANDROID_KEY_PASSWORD }}
+          EXPECTED_CERT: ${{ vars.HISAB_ANDROID_CERT_SHA256 }}
+          PREVIOUS_VERSION_CODE: ${{ vars.HISAB_PREVIOUS_VERSION_CODE }}
+        run: |
+          set -euo pipefail
+          : "${KEYSTORE_B64:?Missing signing keystore}" "${STORE_PASSWORD:?Missing store password}" "${KEY_ALIAS:?Missing key alias}" "${KEY_PASSWORD:?Missing key password}"
+          [[ "$EXPECTED_CERT" =~ ^[[:xdigit:]]{64}$ && "$PREVIOUS_VERSION_CODE" =~ ^[1-9][0-9]{0,9}$ ]]
+          tools="$ANDROID_HOME/build-tools/34.0.0"
+          source_apk=unsigned/app-release-unsigned.apk
+          manifest=$("$tools/aapt" dump badging "$source_apk")
+          package_line=$(sed -n '1p' <<< "$manifest")
+          [[ "$package_line" == "package: name='com.example.hisab' "* ]]
+          code=$(sed -n "s/.* versionCode='\([1-9][0-9]*\)'.*/\1/p" <<< "$package_line")
+          version=$(sed -n "s/.* versionName='\([^']*\)'.*/\1/p" <<< "$package_line")
+          [[ "$version" == "${GITHUB_REF_NAME#v}" && "$code" =~ ^[1-9][0-9]{0,9}$ ]]
+          ((code > PREVIOUS_VERSION_CODE && code <= 2100000000))
+          umask 077
+          keystore=$(mktemp "$RUNNER_TEMP/hisab-key.XXXXXX")
+          trap 'rm -f -- "$keystore"' EXIT
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$keystore"
+          unset KEYSTORE_B64
+          mkdir release
+          apk="hisab-${GITHUB_REF_NAME}.apk"
+          "$tools/zipalign" -p -f 4 "$source_apk" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" sign --ks "$keystore" --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out "release/$apk" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" verify --print-certs "release/$apk" > "$RUNNER_TEMP/hisab-apk-certificate.txt"
+          cert=$(sed -n 's/^Signer #[0-9]* certificate SHA-256 digest: //p' "$RUNNER_TEMP/hisab-apk-certificate.txt")
+          [[ "${cert,,}" == "${EXPECTED_CERT,,}" ]] || { echo 'APK signer does not match the configured installation identity.' >&2; exit 1; }
+          (cd release && sha256sum "$apk" > SHA256SUMS)
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: hisab-release-signed
+          path: release/
+          retention-days: 7
+          if-no-files-found: error
+
+  publish:
+    name: Publish the verified GitHub release
+    needs: sign
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: hisab-release-signed
+          path: release
+      - name: Verify the asset checksums again and publish from a draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          (cd release && sha256sum --check SHA256SUMS)
+          gh release create "$GITHUB_REF_NAME" --verify-tag --draft --generate-notes --title "Hisab $GITHUB_REF_NAME" "release/hisab-${GITHUB_REF_NAME}.apk" release/SHA256SUMS
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest

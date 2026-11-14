@@ -1,0 +1,97 @@
+name: Android CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android tests, lint and APK build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+      - name: Check formatting of changed lines
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python3 scripts/ci/check_patch_format.py --base "$BASE_SHA"
+      - name: Test, lint and build
+        working-directory: Hisab
+        run: >-
+          bash ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug assembleRelease
+          -PHISAB_RELEASE_API_URL=https://api.example.invalid/
+          -PHISAB_QA=true -PHISAB_DEBUG_API_URL=http://127.0.0.1:18093/
+      - name: Verify the debug APK signature
+        run: '"$ANDROID_HOME/build-tools/34.0.0/apksigner" verify Hisab/app/build/outputs/apk/debug/app-debug.apk'
+      - name: Upload Android reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: android-reports
+          path: |
+            Hisab/app/build/reports/tests/testDebugUnitTest/
+            Hisab/app/build/test-results/testDebugUnitTest/TEST-*.xml
+            Hisab/app/build/reports/lint-results-debug.*
+          retention-days: 14
+      - name: Upload debug build
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: hisab-qa-debug-apk
+          path: Hisab/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  instrumentation:
+    name: Android database upgrade on API 34
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-read-only: true
+      - name: Grant access to the runner's virtual machine device
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          working-directory: Hisab
+          script: bash ./gradlew --no-daemon connectedDebugAndroidTest -PHISAB_QA=true -PHISAB_DEBUG_API_URL=http://127.0.0.1:18093/
+      - name: Upload instrumentation reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: android-instrumentation-reports
+          path: |
+            Hisab/app/build/reports/androidTests/connected/
+            Hisab/app/build/outputs/androidTest-results/connected/
+          retention-days: 14

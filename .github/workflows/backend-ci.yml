@@ -1,0 +1,63 @@
+name: Backend CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests, container and dependency audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+        with:
+          cache-read-only: true
+      - name: Check formatting, shell syntax and repository contents
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          python3 scripts/ci/check_patch_format.py --base "$BASE_SHA"
+          bash -n scripts/ci/run-backend-regression.sh
+          python3 scripts/check_secrets.py
+      - name: Compile, test, and resolve the deployment dependencies
+        working-directory: hisab-server
+        run: bash ./gradlew --no-daemon test installDist writeCiRuntimeLock -I ../scripts/ci/backend-runtime-lock.init.gradle
+      - name: Run API regression against a disposable MongoDB replica set
+        run: bash scripts/ci/run-backend-regression.sh "$RUNNER_TEMP/hisab-backend"
+      - name: Validate the production container build
+        run: docker build --tag hisab-ci --file hisab-server/Dockerfile hisab-server
+      - name: Scan resolved runtime dependencies
+        run: |
+          scanner="$RUNNER_TEMP/osv-scanner"
+          curl --fail --silent --show-error --location --retry 3 --output "$scanner" https://github.com/google/osv-scanner/releases/download/v2.7.1/osv-scanner_linux_amd64
+          echo "fb7dab19a8bd9bbe5c3189f09d4b7ee1820c9553a23bac202648a56efd2f6ee8  $scanner" | sha256sum --check
+          chmod +x "$scanner"
+          "$scanner" scan source --lockfile hisab-server/build/ci/gradle.lockfile --format json --output-file "$RUNNER_TEMP/hisab-backend/dependency-audit.json"
+      - name: Upload backend reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: backend-reports
+          path: |
+            hisab-server/build/test-results/test/TEST-*.xml
+            hisab-server/build/reports/tests/test/
+            hisab-server/build/ci/gradle.lockfile
+            ${{ runner.temp }}/hisab-backend/*.log
+            ${{ runner.temp }}/hisab-backend/api-regression.txt
+            ${{ runner.temp }}/hisab-backend/dependency-audit.json
+          retention-days: 14

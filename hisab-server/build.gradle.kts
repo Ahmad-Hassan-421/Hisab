@@ -1,4 +1,4 @@
-val ktor_version = "2.3.9"
+val ktor_version = "2.3.13"
 val kmongo_version = "4.11.0"
 val logback_version = "1.5.38"
 val netty_version = "4.1.140.Final"
@@ -6,7 +6,7 @@ val jackson_version = "2.23.0"
 
 plugins {
     kotlin("jvm") version "2.1.21"
-    id("io.ktor.plugin") version "2.3.9"
+    id("io.ktor.plugin") version "2.3.13"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.1.21"
 }
 
@@ -37,6 +37,11 @@ repositories {
 dependencies {
     implementation(platform("io.netty:netty-bom:$netty_version"))
     implementation(platform("com.fasterxml.jackson:jackson-bom:$jackson_version"))
+    constraints {
+        implementation("com.google.guava:guava:33.7.2-jre") {
+            because("Use the patched Guava version for transitive runtime dependencies")
+        }
+    }
 
     // Ktor Core & Server
     implementation("io.ktor:ktor-server-core-jvm:$ktor_version")
@@ -69,4 +74,6 @@ dependencies {
     
     // Logging
     implementation("ch.qos.logback:logback-classic:$logback_version")
+
+    testImplementation("junit:junit:4.13.2")
 }
