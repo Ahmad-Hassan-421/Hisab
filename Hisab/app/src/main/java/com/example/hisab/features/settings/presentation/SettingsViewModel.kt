@@ -12,6 +12,7 @@ import com.example.hisab.util.ThemeMode
 import com.example.hisab.util.ThemePreferencesManager
 import com.example.hisab.util.UpdateDownloadStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +20,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.io.File
 import javax.inject.Inject
 
 data class SettingsUiState(
@@ -57,6 +57,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val release = updateRepository.getLatestRelease()
+                require(!release.versionName.isNullOrBlank() && !release.downloadUrl.isNullOrBlank()) {
+                    "Incomplete update metadata"
+                }
                 val isNewer = release.isNewerThan(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
                 _uiState.update {
                     it.copy(
@@ -66,6 +69,8 @@ class SettingsViewModel @Inject constructor(
                         checkError = null
                     )
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val failure = failures.report("Check for updates", e)
                 _uiState.update {
@@ -80,14 +85,14 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun startUpdateDownload() {
-        if (!_uiState.value.updateAvailable || downloadStatus.value is UpdateDownloadStatus.Downloading) return
-        val release = _uiState.value.remoteRelease ?: return
-        apkUpdateManager.startDownload(release.downloadUrl, release.versionName)
+    fun startUpdateDownload(release: AppUpdateResponse) {
+        val state = _uiState.value
+        if (!state.updateAvailable || state.isCheckingForUpdate || state.remoteRelease != release) return
+        apkUpdateManager.startDownload(release.downloadUrl, release.versionName, release.sizeBytes?.takeIf { it > 0 })
     }
 
-    fun installApk(context: Context, apkFile: File) {
-        apkUpdateManager.promptInstall(context, apkFile)
+    fun installApk(context: Context) {
+        apkUpdateManager.promptInstall(context)
     }
 
     fun setThemeMode(mode: ThemeMode) {
@@ -96,7 +101,5 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun canRequestPackageInstalls(context: Context): Boolean {
-        return apkUpdateManager.canRequestPackageInstalls(context)
-    }
+    fun cancelUpdateDownload() = apkUpdateManager.cancel()
 }

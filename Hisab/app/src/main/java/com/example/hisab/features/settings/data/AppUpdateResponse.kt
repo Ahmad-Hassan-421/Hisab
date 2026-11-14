@@ -6,7 +6,8 @@ data class AppUpdateResponse(
     @SerializedName("versionCode") val versionCode: Int,
     @SerializedName("versionName") val versionName: String,
     @SerializedName("releaseNotes") val releaseNotes: String,
-    @SerializedName("downloadUrl") val downloadUrl: String
+    @SerializedName("downloadUrl") val downloadUrl: String,
+    @SerializedName("sizeBytes") val sizeBytes: Long? = null
 ) {
     internal fun isNewerThan(installedVersionName: String, installedVersionCode: Int): Boolean {
         val remote = parseVersion(versionName)

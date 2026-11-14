@@ -22,7 +22,8 @@ import org.slf4j.LoggerFactory
 @Serializable
 data class GitHubAsset(
     val name: String,
-    @SerialName("browser_download_url") val browserDownloadUrl: String
+    @SerialName("browser_download_url") val browserDownloadUrl: String,
+    val size: Long? = null
 )
 
 @Serializable
@@ -37,7 +38,8 @@ data class AppUpdateResponse(
     val versionCode: Int,
     val versionName: String,
     val releaseNotes: String,
-    val downloadUrl: String
+    val downloadUrl: String,
+    val sizeBytes: Long? = null
 )
 
 @Serializable
@@ -96,7 +98,8 @@ object GitHubReleaseClient {
                         versionCode = parsedVersion,
                         versionName = release.tagName,
                         releaseNotes = release.body,
-                        downloadUrl = apkAsset.browserDownloadUrl
+                        downloadUrl = apkAsset.browserDownloadUrl,
+                        sizeBytes = apkAsset.size?.takeIf { it > 0 }
                     )
                     HttpStatusCode.OK to updateResponse
                 }

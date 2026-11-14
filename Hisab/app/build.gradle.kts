@@ -25,6 +25,8 @@ val releaseOrigin = providers.gradleProperty("HISAB_RELEASE_API_URL")
     .orElse(providers.environmentVariable("HISAB_RELEASE_API_URL"))
     .map { apiOrigin(it, "HISAB_RELEASE_API_URL", httpsOnly = true) }
 val qaPackage = providers.gradleProperty("HISAB_QA").map(String::toBooleanStrict).orElse(false).get()
+val qaVersion = providers.gradleProperty("HISAB_QA_VERSION_CODE").map(String::toInt).orNull
+require(qaVersion == null || (qaPackage && qaVersion > 2)) { "A QA version override requires HISAB_QA and a build above 2" }
 
 android {
     namespace = "com.example.hisab"
@@ -83,6 +85,15 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        if (qaVersion != null) variant.outputs.forEach { output ->
+            output.versionCode.set(qaVersion)
+            output.versionName.set("1.1.$qaVersion")
         }
     }
 }
