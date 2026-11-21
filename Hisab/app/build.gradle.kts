@@ -25,7 +25,6 @@ val releaseOrigin = providers.gradleProperty("HISAB_RELEASE_API_URL")
     .orElse(providers.environmentVariable("HISAB_RELEASE_API_URL"))
     .map { apiOrigin(it, "HISAB_RELEASE_API_URL", httpsOnly = true) }
 val qaPackage = providers.gradleProperty("HISAB_QA").map(String::toBooleanStrict).orElse(false).get()
-val splashEnabled = providers.gradleProperty("HISAB_SPLASH").map(String::toBooleanStrict).orElse(true).get()
 val qaVersion = providers.gradleProperty("HISAB_QA_VERSION_CODE").map(String::toInt).orNull
 val currentBuild = 3
 require(qaVersion == null || (qaPackage && qaVersion > currentBuild)) { "A QA version override must be newer than the current build" }
@@ -45,7 +44,6 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["allowCleartext"] = "false"
         manifestPlaceholders["launcherLabel"] = "@string/app_name"
-        buildConfigField("boolean", "SPLASH_ENABLED", splashEnabled.toString())
         vectorDrawables {
             useSupportLibrary = true
         }

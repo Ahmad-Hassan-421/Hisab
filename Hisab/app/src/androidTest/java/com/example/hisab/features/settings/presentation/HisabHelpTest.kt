@@ -9,15 +9,25 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import android.content.Context
+import android.content.Intent
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.hisab.BuildConfig
+import com.example.hisab.ui.EXTRA_SKIP_SPLASH
 import com.example.hisab.ui.MainActivity
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class HisabHelpTest {
+    companion object {
+        init {
+            com.example.hisab.ui.MainActivity.testSkipSplash = true
+        }
+    }
     @get:Rule
     val compose = createAndroidComposeRule<MainActivity>()
 

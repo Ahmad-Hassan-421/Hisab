@@ -39,7 +39,7 @@ fun SplashScreen(onFinished: () -> Unit) {
     }
     LaunchedEffect(Unit) {
         alpha.animateTo(1f, animationSpec = tween(500))
-        delay(200)
+        delay(100)
         onFinished()
     }
 

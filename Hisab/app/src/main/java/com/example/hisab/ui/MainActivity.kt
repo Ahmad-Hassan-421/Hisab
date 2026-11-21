@@ -66,8 +66,13 @@ import com.example.hisab.util.TokenManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
+const val EXTRA_SKIP_SPLASH = "hisab.skipSplash"
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    companion object {
+        @Volatile var testSkipSplash: Boolean = false
+    }
     
     @Inject
     lateinit var themePreferencesManager: ThemePreferencesManager
@@ -106,13 +111,13 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    var showSplash by remember { mutableStateOf(com.example.hisab.BuildConfig.SPLASH_ENABLED) }
-                val splashTarget = if (tokenManager.getUserId() != null) "session_entry" else "login"
-                if (showSplash && com.example.hisab.BuildConfig.SPLASH_ENABLED) {
-                    SplashScreen(onFinished = { showSplash = false })
-                } else {
-                    HisabNavHost(startDest = splashTarget, hasSession = tokenManager.getUserId() != null)
-                }
+                    var showSplash by remember { mutableStateOf(!testSkipSplash) }
+                    val splashTarget = if (tokenManager.getUserId() != null) "session_entry" else "login"
+                    if (showSplash) {
+                        SplashScreen(onFinished = { showSplash = false })
+                    } else {
+                        HisabNavHost(startDest = splashTarget, hasSession = tokenManager.getUserId() != null)
+                    }
                 }
             }
         }

@@ -91,7 +91,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           working-directory: Hisab
-          script: bash ./gradlew --no-daemon connectedDebugAndroidTest -PHISAB_QA=true -PHISAB_SPLASH=false -PHISAB_DEBUG_API_URL=http://127.0.0.1:18093/
+          script: bash ./gradlew --no-daemon connectedDebugAndroidTest -PHISAB_QA=true -PHISAB_DEBUG_API_URL=http://127.0.0.1:18093/
       - name: Upload instrumentation reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

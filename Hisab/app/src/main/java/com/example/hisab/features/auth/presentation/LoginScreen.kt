@@ -44,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -161,7 +162,7 @@ fun LoginScreen(
                             onValueChange = { viewModel.onNameChange(it) },
                             label = { Text("Full Name") },
                             leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Name") },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().testTag("signup_full_name"),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                         )
@@ -173,7 +174,7 @@ fun LoginScreen(
                         onValueChange = { viewModel.onEmailChange(it) },
                         label = { Text("Email") },
                         leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().testTag("signup_email"),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Email,
@@ -192,7 +193,7 @@ fun LoginScreen(
                             PasswordVisibilityToggle(passwordVisible, "password") { passwordVisible = !passwordVisible }
                         },
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().testTag("signup_password"),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Password,
@@ -225,7 +226,7 @@ fun LoginScreen(
                                 PasswordVisibilityToggle(confirmationVisible, "confirm password") { confirmationVisible = !confirmationVisible }
                             },
                             visualTransformation = if (confirmationVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            modifier = Modifier.fillMaxWidth().focusRequester(confirmationFocus),
+                            modifier = Modifier.fillMaxWidth().focusRequester(confirmationFocus).testTag("signup_confirm_password"),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Password,

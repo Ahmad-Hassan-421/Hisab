@@ -11,6 +11,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
@@ -19,14 +20,24 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.TextRange
+import android.content.Context
+import android.content.Intent
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.hisab.ui.EXTRA_SKIP_SPLASH
 import com.example.hisab.ui.MainActivity
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SignupPasswordVisibilityTest {
+    companion object {
+        init {
+            com.example.hisab.ui.MainActivity.testSkipSplash = true
+        }
+    }
     @get:Rule
     val compose = createAndroidComposeRule<MainActivity>()
 
@@ -72,5 +83,14 @@ class SignupPasswordVisibilityTest {
         compose.onNodeWithText("Review and acknowledge the Privacy Policy to create an account.").assertExists()
     }
 
-    private fun field(label: String) = compose.onNode(hasSetTextAction() and hasText(label))
+    private fun field(label: String): androidx.compose.ui.test.SemanticsNodeInteraction {
+        val tag = when (label) {
+            "Full Name" -> "signup_full_name"
+            "Email" -> "signup_email"
+            "Password" -> "signup_password"
+            "Confirm Password" -> "signup_confirm_password"
+            else -> error("Unknown field $label")
+        }
+        return compose.onNodeWithTag(tag)
+    }
 }
