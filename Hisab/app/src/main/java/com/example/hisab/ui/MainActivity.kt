@@ -106,9 +106,9 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    var showSplash by remember { mutableStateOf(true) }
+                    var showSplash by remember { mutableStateOf(com.example.hisab.BuildConfig.SPLASH_ENABLED) }
                 val splashTarget = if (tokenManager.getUserId() != null) "session_entry" else "login"
-                if (showSplash) {
+                if (showSplash && com.example.hisab.BuildConfig.SPLASH_ENABLED) {
                     SplashScreen(onFinished = { showSplash = false })
                 } else {
                     HisabNavHost(startDest = splashTarget, hasSession = tokenManager.getUserId() != null)
