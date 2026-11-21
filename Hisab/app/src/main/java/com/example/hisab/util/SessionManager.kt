@@ -21,6 +21,12 @@ class SessionManager @Inject constructor() {
     private val _requiresSignIn = MutableStateFlow(false)
     val requiresSignIn: StateFlow<Boolean> = _requiresSignIn.asStateFlow()
 
+    private val _privacyReviewNeeded = MutableStateFlow(false)
+    val privacyReviewNeeded: StateFlow<Boolean> = _privacyReviewNeeded.asStateFlow()
+
+    fun requirePrivacyReview() { _privacyReviewNeeded.value = true }
+    fun completePrivacyReview() { _privacyReviewNeeded.value = false }
+
     fun setSession(userId: String, role: String) {
         _requiresSignIn.value = false
         _currentUserId.value = userId
@@ -32,6 +38,7 @@ class SessionManager @Inject constructor() {
         _currentUserId.value = null
         _role.value = null
         _isAdmin.value = false
+        _privacyReviewNeeded.value = false
     }
 
     fun expire() {

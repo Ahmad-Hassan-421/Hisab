@@ -3,6 +3,7 @@ package com.example.hisab.util
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -13,6 +14,7 @@ import androidx.annotation.MainThread
 import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.annotation.WorkerThread
+import com.example.hisab.BuildConfig
 import com.example.hisab.features.settings.data.VerifiedUpdate
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -212,7 +214,9 @@ class ApkUpdateManager @Inject constructor(
         fun PackageInfo.signers() = if (Build.VERSION.SDK_INT >= 28) signingInfo?.apkContentsSigners else signatures
         val currentSigners = installed.signers()?.toSet().orEmpty()
         val updateSigners = candidate.signers()?.toSet().orEmpty()
-        if (candidate.packageName != context.packageName || currentSigners.isEmpty() ||
+        val debuggableCandidate = candidate.applicationInfo?.flags?.and(ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (candidate.packageName != context.packageName || (!BuildConfig.UPDATE_QA && debuggableCandidate) ||
+            currentSigners.isEmpty() ||
             currentSigners != updateSigners || candidate.versionName != release.versionName ||
             PackageInfoCompat.getLongVersionCode(candidate) != release.versionCode.toLong() ||
             PackageInfoCompat.getLongVersionCode(candidate) <= PackageInfoCompat.getLongVersionCode(installed)) {

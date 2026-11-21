@@ -40,6 +40,12 @@ jobs:
           -PHISAB_QA=true -PHISAB_DEBUG_API_URL=http://127.0.0.1:18093/
       - name: Verify the debug APK signature
         run: '"$ANDROID_HOME/build-tools/34.0.0/apksigner" verify Hisab/app/build/outputs/apk/debug/app-debug.apk'
+      - name: Verify QA and release launcher identities
+        run: |
+          set -o pipefail
+          aapt="$ANDROID_HOME/build-tools/34.0.0/aapt"
+          "$aapt" dump badging Hisab/app/build/outputs/apk/debug/app-debug.apk | python3 scripts/ci/check_apk_identity.py --package com.example.hisab.qa --label 'Hisab QA' --debuggable
+          "$aapt" dump badging Hisab/app/build/outputs/apk/release/app-release-unsigned.apk | python3 scripts/ci/check_apk_identity.py --package com.example.hisab --label Hisab
       - name: Upload Android reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

@@ -41,7 +41,7 @@ fun RepaymentDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
-        title = { Text(if (mode == 0) "Record repayment" else "Enter repayment") },
+        title = { Text(if (mode == 0) "Record a payment" else "Enter payment") },
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                 if (mode == 0) {

@@ -26,21 +26,24 @@ val releaseOrigin = providers.gradleProperty("HISAB_RELEASE_API_URL")
     .map { apiOrigin(it, "HISAB_RELEASE_API_URL", httpsOnly = true) }
 val qaPackage = providers.gradleProperty("HISAB_QA").map(String::toBooleanStrict).orElse(false).get()
 val qaVersion = providers.gradleProperty("HISAB_QA_VERSION_CODE").map(String::toInt).orNull
-require(qaVersion == null || (qaPackage && qaVersion > 2)) { "A QA version override requires HISAB_QA and a build above 2" }
+val currentBuild = 3
+require(qaVersion == null || (qaPackage && qaVersion > currentBuild)) { "A QA version override must be newer than the current build" }
 
 android {
     namespace = "com.example.hisab"
     compileSdk = 34
+    sourceSets.getByName("main").assets.srcDir(rootProject.file("../hisab-server/src/main/resources/policies"))
 
     defaultConfig {
         applicationId = "com.example.hisab"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = currentBuild
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["allowCleartext"] = "false"
+        manifestPlaceholders["launcherLabel"] = "@string/app_name"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -52,11 +55,13 @@ android {
             buildConfigField("String", "API_BASE_URL", "\"$origin\"")
             buildConfigField("boolean", "UPDATE_QA", qaPackage.toString())
             manifestPlaceholders["allowCleartext"] = (URI(origin).scheme == "http").toString()
+            applicationIdSuffix = if (qaPackage) ".qa" else ".debug"
+            resValue("string", "app_name_nonproduction", if (qaPackage) "Hisab QA" else "Hisab Debug")
+            manifestPlaceholders["launcherLabel"] = "@string/app_name_nonproduction"
             if (qaPackage) {
                 require(URI(origin).host in setOf("127.0.0.1", "localhost", "10.0.2.2")) {
                     "HISAB_QA requires a loopback debug API URL"
                 }
-                applicationIdSuffix = ".qa"
             }
         }
         release {
@@ -95,7 +100,7 @@ androidComponents {
     onVariants(selector().withBuildType("debug")) { variant ->
         if (qaVersion != null) variant.outputs.forEach { output ->
             output.versionCode.set(qaVersion)
-            output.versionName.set("1.1.$qaVersion")
+            output.versionName.set("1.2.$qaVersion")
         }
     }
 }

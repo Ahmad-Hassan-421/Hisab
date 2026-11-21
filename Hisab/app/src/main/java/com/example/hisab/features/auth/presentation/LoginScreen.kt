@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +42,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
@@ -61,13 +67,18 @@ import com.example.hisab.features.auth.presentation.AuthViewModel
 @Composable
 fun LoginScreen(
     onNavigateToDashboard: () -> Unit,
+    onForgotPassword: () -> Unit,
+    onHelp: () -> Unit,
+    onPrivacyPolicy: () -> Unit,
     sessionExpired: Boolean = false,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val feedback = LocalHisabFeedback.current
     val focusManager = LocalFocusManager.current
-    var passwordVisible by remember { mutableStateOf(false) }
+    val confirmationFocus = remember { FocusRequester() }
+    var passwordVisible by remember(uiState.isLoginMode) { mutableStateOf(false) }
+    var confirmationVisible by remember(uiState.isLoginMode) { mutableStateOf(false) }
 
     LaunchedEffect(uiState.isSignedIn) {
         if (uiState.isSignedIn) {
@@ -159,12 +170,7 @@ fun LoginScreen(
                 label = { Text("Password") },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Password") },
                 trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                        )
-                    }
+                    PasswordVisibilityToggle(passwordVisible, "password") { passwordVisible = !passwordVisible }
                 },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
@@ -179,9 +185,15 @@ fun LoginScreen(
                         viewModel.login()
                     })
                 } else {
-                    KeyboardActions(onNext = { focusManager.clearFocus() })
+                    KeyboardActions(onNext = { confirmationFocus.requestFocus() })
                 }
             )
+
+            if (uiState.isLoginMode) {
+                TextButton(onClick = onForgotPassword, enabled = !uiState.isLoading, modifier = Modifier.align(Alignment.End)) {
+                    Text("Forgot password?")
+                }
+            }
 
             if (!uiState.isLoginMode) {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -190,8 +202,11 @@ fun LoginScreen(
                     onValueChange = { viewModel.onConfirmPasswordChange(it) },
                     label = { Text("Confirm Password") },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Confirm Password") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
+                    trailingIcon = {
+                        PasswordVisibilityToggle(confirmationVisible, "confirm password") { confirmationVisible = !confirmationVisible }
+                    },
+                    visualTransformation = if (confirmationVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth().focusRequester(confirmationFocus),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Password,
@@ -202,6 +217,17 @@ fun LoginScreen(
                         viewModel.register()
                     })
                 )
+                val canAcknowledge = uiState.privacyPolicyVersion != null && !uiState.isLoading
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(value = uiState.privacyAcknowledged,
+                    enabled = canAcknowledge, role = Role.Checkbox, onValueChange = viewModel::acknowledgePrivacy),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = uiState.privacyAcknowledged, onCheckedChange = null, enabled = canAcknowledge)
+                    Text("I acknowledge the Privacy Policy", modifier = Modifier.padding(start = 12.dp),
+                        style = MaterialTheme.typography.bodyMedium)
+                }
+                TextButton(onClick = onPrivacyPolicy, modifier = Modifier.align(Alignment.Start)) {
+                    Text("Read Privacy Policy")
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -251,6 +277,17 @@ fun LoginScreen(
                     )
                 }
             }
+            TextButton(onClick = onHelp) { Text("Help and support") }
         }
+    }
+}
+
+@Composable
+private fun PasswordVisibilityToggle(visible: Boolean, field: String, onToggle: () -> Unit) {
+    IconButton(onClick = onToggle) {
+        Icon(
+            imageVector = if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+            contentDescription = if (visible) "Hide $field" else "Show $field"
+        )
     }
 }

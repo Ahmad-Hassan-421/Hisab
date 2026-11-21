@@ -62,6 +62,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +73,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.hisab.features.profile.data.LocalProfilePhoto
+import com.example.hisab.util.Constants
 import com.example.hisab.features.profile.presentation.ProfileViewModel
 
 @Composable
@@ -165,6 +168,7 @@ fun ThemeToggleSwitch(
 @Composable
 fun ProfileScreen(
     onNavigateBack: () -> Unit,
+    onVerifyRecoveryEmail: () -> Unit,
     onNavigateToSettings: () -> Unit = {},
     onLoggedOut: () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel()
@@ -173,12 +177,16 @@ fun ProfileScreen(
     FeedbackEffect(uiState.error, FeedbackKind.ERROR, viewModel::clearMessages)
     FeedbackEffect(uiState.successMessage, FeedbackKind.SUCCESS, viewModel::clearMessages)
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var pickerAccount by rememberSaveable { mutableStateOf<String?>(null) }
 
     
     val cropImageLauncher = rememberLauncherForActivityResult(com.canhub.cropper.CropImageContract()) { result ->
+        val account = pickerAccount
+        pickerAccount = null
+        if (account == null || account != uiState.accountId) return@rememberLauncherForActivityResult
         if (result.isSuccessful) {
             val uriContent = result.uriContent
-            if (uriContent != null) viewModel.uploadProfilePicture(uriContent) else viewModel.reportImageSelectionError()
+            if (uriContent != null) viewModel.saveProfilePicture(account, uriContent) else viewModel.reportImageSelectionError()
         } else if (result.error != null) {
             viewModel.reportImageSelectionError()
         }
@@ -187,20 +195,26 @@ fun ProfileScreen(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
-        uri?.let {
-            val options = com.canhub.cropper.CropImageContractOptions(it, com.canhub.cropper.CropImageOptions(
-                fixAspectRatio = true,
-                aspectRatioX = 1,
-                aspectRatioY = 1,
-                cropShape = com.canhub.cropper.CropImageView.CropShape.OVAL,
-                outputCompressFormat = Bitmap.CompressFormat.JPEG,
-                outputCompressQuality = 88,
-                outputRequestWidth = 512,
-                outputRequestHeight = 512,
-                outputRequestSizeOptions = com.canhub.cropper.CropImageView.RequestSizeOptions.RESIZE_INSIDE
-            ))
-            cropImageLauncher.launch(options)
+        if (uri == null || pickerAccount != uiState.accountId) {
+            pickerAccount = null
+            return@rememberLauncherForActivityResult
         }
+        val options = com.canhub.cropper.CropImageContractOptions(uri, com.canhub.cropper.CropImageOptions(
+            fixAspectRatio = true,
+            aspectRatioX = 1,
+            aspectRatioY = 1,
+            cropShape = com.canhub.cropper.CropImageView.CropShape.OVAL,
+            outputCompressFormat = Bitmap.CompressFormat.JPEG,
+            outputCompressQuality = 88,
+            outputRequestWidth = 512,
+            outputRequestHeight = 512,
+            outputRequestSizeOptions = com.canhub.cropper.CropImageView.RequestSizeOptions.RESIZE_INSIDE
+        ))
+        cropImageLauncher.launch(options)
+    }
+    val selectPicture = {
+        pickerAccount = uiState.accountId
+        if (pickerAccount != null) imagePickerLauncher.launch("image/*")
     }
 
     if (showLogoutDialog) {
@@ -275,21 +289,18 @@ fun ProfileScreen(
             ) {
                 HisabAvatar(
                     url = uiState.profilePicUrl,
+                    localPhoto = uiState.localPhoto,
                     description = "Profile picture",
                     modifier = Modifier
                         .size(120.dp)
-                        .clickable(enabled = !uiState.isUploading && !uiState.isSaving) {
-                            imagePickerLauncher.launch("image/*")
-                        }
+                        .clickable(enabled = !uiState.isUploading && !uiState.isSaving, onClick = selectPicture)
                 )
                 
                 Surface(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .clickable(enabled = !uiState.isUploading && !uiState.isSaving) {
-                            imagePickerLauncher.launch("image/*")
-                        },
+                        .clickable(enabled = !uiState.isUploading && !uiState.isSaving, onClick = selectPicture),
                     color = MaterialTheme.colorScheme.primary
                 ) {
                     Icon(
@@ -298,6 +309,12 @@ fun ProfileScreen(
                         modifier = Modifier.padding(8.dp),
                         tint = MaterialTheme.colorScheme.onPrimary
                     )
+                }
+            }
+            if (uiState.localPhoto is LocalProfilePhoto.Selected ||
+                (uiState.localPhoto == LocalProfilePhoto.Unset && Constants.profileImageUrl(uiState.profilePicUrl) != null)) {
+                TextButton(enabled = !uiState.isUploading && !uiState.isSaving, onClick = viewModel::removeProfilePicture) {
+                    Text("Reset picture on this device")
                 }
             }
 
@@ -325,10 +342,12 @@ fun ProfileScreen(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
 
+            TextButton(onClick = onVerifyRecoveryEmail) { Text("Verify recovery email") }
+
             Spacer(modifier = Modifier.height(32.dp))
 
             if (uiState.isUploading) {
-                ActionLabel("Profile picture", "Uploading picture…", busy = true)
+                ActionLabel("Profile picture", "Saving picture…", busy = true)
             }
 
 

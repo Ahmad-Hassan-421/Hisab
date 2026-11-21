@@ -82,9 +82,11 @@ def main():
         expect("invalid JSON", 400, "POST", "/auth/register", body=b"{")
         expect("unknown routes return a correlated error", 404, "GET", "/nonexistent-qa-route")
 
+    policy = expect("current privacy policy is available", 200, "GET", "/privacy/policy")
     users = []
     for who in ("alice", "bob", "outsider"):
-        credentials = {"name": who, "email": f"{who}-{run}@example.invalid", "password": password}
+        credentials = {"name": who, "email": f"{who}-{run}@example.invalid", "password": password,
+                       "privacyPolicyVersion": policy["version"]}
         created = expect(f"register {who}", 201, "POST", "/auth/register", body=credentials)
         if not isinstance(created, dict) or "user" not in created:
             raise RuntimeError("Failed to create isolated fixtures")

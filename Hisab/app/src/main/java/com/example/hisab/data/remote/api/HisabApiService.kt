@@ -5,6 +5,14 @@ import com.example.hisab.features.ledger.data.*
 import com.example.hisab.features.invitations.data.*
 import com.example.hisab.features.profile.data.*
 import com.example.hisab.features.auth.data.*
+import com.example.hisab.features.admin.data.AccountDirectoryPage
+import com.example.hisab.features.admin.data.AccountOverview
+import com.example.hisab.features.admin.data.ChangeAccountStatus
+import com.example.hisab.features.privacy.data.PolicyAcknowledgment
+import com.example.hisab.features.privacy.data.PrivacyDataReceipt
+import com.example.hisab.features.privacy.data.PrivacyDataRequest
+import com.example.hisab.features.privacy.data.PrivacyDocument
+import com.example.hisab.features.privacy.data.PrivacyStatus
 import com.example.hisab.features.settings.data.AppUpdateResponse
 import okhttp3.MultipartBody
 import retrofit2.Response
@@ -16,6 +24,43 @@ interface HisabApiService {
 
     @POST("auth/login")
     suspend fun login(@Body req: LoginRequest): AuthResponse
+
+    @POST("auth/recovery/request")
+    suspend fun requestPasswordRecovery(@Body request: RecoveryRequest): Response<Unit>
+
+    @POST("auth/recovery/reset")
+    suspend fun resetPassword(@Body request: PasswordResetRequest): Response<Unit>
+
+    @GET("auth/verification")
+    suspend fun getRecoveryEmailStatus(): RecoveryEmailStatus
+
+    @POST("auth/verification/request")
+    suspend fun requestRecoveryEmailVerification(): Response<Unit>
+
+    @POST("auth/verification/confirm")
+    suspend fun verifyRecoveryEmail(@Body request: RecoveryEmailConfirmation): Response<Unit>
+
+    @GET("privacy/policy")
+    suspend fun getPrivacyPolicy(): PrivacyDocument
+
+    @GET("account/privacy/status")
+    suspend fun getPrivacyStatus(): PrivacyStatus
+
+    @POST("account/privacy/acknowledge")
+    suspend fun acknowledgePrivacy(@Body acknowledgment: PolicyAcknowledgment): PrivacyStatus
+
+    @POST("account/privacy/data-requests")
+    suspend fun requestPrivacyData(@Body request: PrivacyDataRequest): PrivacyDataReceipt
+
+    @GET("admin/overview")
+    suspend fun getAccountOverview(): AccountOverview
+
+    @GET("admin/users")
+    suspend fun getAccountDirectory(@Query("q") query: String, @Query("status") status: String,
+                                    @Query("cursor") cursor: String?): AccountDirectoryPage
+
+    @PATCH("admin/users/{id}/status")
+    suspend fun changeAccountStatus(@Path("id") id: String, @Body request: ChangeAccountStatus): Response<Unit>
 
     @GET("users/{id}")
     suspend fun getUser(@Path("id") id: String): UserDto

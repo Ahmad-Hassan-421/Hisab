@@ -13,7 +13,8 @@
 | `UPLOAD_DIR` | Defaults to `uploads` in local mode. Render uses `/var/data/uploads`. |
 | `RENDER_EXTERNAL_URL` | Supplied by Render. A valid HTTPS origin makes stored profile paths absolute in API responses. |
 | `CORS_ALLOWED_ORIGINS` | Optional comma-separated browser origins such as `https://dashboard.example.invalid`. Native Android can use the API without CORS. |
-| `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` | Optional pair. Configure both for welcome email delivery. |
+| `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` | Configure both to enable welcome messages, recovery email verification, and password reset. Use a Brevo sender authorized for transactional email. |
+| `HISAB_DEV_BREVO_URL` | Optional loopback HTTP endpoint for a disposable email sink. It is read only when `HISAB_ENV=development`. |
 
 The server reads the process environment. Use the [.env.example](../.env.example) template to see the variable names.
 

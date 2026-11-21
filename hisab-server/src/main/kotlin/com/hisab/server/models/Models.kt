@@ -16,8 +16,23 @@ data class UserDocument(
     val themePreference: String = "system",
     val role: String = "user",
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val sessionVersion: Long = 0,
+    val emailVerifiedAt: Long? = null,
+    val emailVerification: AccountChallenge? = null,
+    val passwordRecovery: AccountChallenge? = null,
+    val accountStatus: String? = null,
+    val privacyPolicyVersion: String? = null,
+    val privacyPolicyAcknowledgmentVersion: String? = null,
+    val privacyPolicyAcceptedAt: Long? = null,
+    val privacyPolicyHistory: List<PrivacyAcknowledgment> = emptyList()
 )
+
+@Serializable
+data class AccountChallenge(val digest: String, val expiresAt: Long)
+
+@Serializable
+data class PrivacyAcknowledgment(val version: String, val acknowledgmentVersion: String, val acceptedAt: Long)
 
 @Serializable
 data class HisabEntryDocument(
@@ -53,5 +68,15 @@ data class HisabRequestDocument(
     val groupId: String,
     val groupName: String,
     val status: String = "pending",
+    val invitationMessage: String? = null,
     val createdAt: Long = System.currentTimeMillis()
+)
+
+@Serializable
+data class InviteMessageDocument(
+    @BsonId val id: String = UUID.randomUUID().toString(),
+    val key: String,
+    val text: String,
+    val active: Boolean = true,
+    val language: String = "en"
 )

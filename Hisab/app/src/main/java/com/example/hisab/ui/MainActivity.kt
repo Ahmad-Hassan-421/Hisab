@@ -30,11 +30,21 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.hisab.R
 import com.example.hisab.features.admin.presentation.AdminScreen
 import com.example.hisab.features.auth.presentation.LoginScreen
+import com.example.hisab.features.auth.presentation.AccountRecoveryScreen
+import com.example.hisab.features.auth.presentation.VerifyRecoveryEmailScreen
+import com.example.hisab.features.settings.presentation.AboutHisabScreen
+import com.example.hisab.features.settings.presentation.HisabFaqScreen
+import com.example.hisab.features.privacy.presentation.PrivacyDataScreen
+import com.example.hisab.features.privacy.presentation.PrivacyGate
+import com.example.hisab.features.privacy.presentation.PrivacyPolicyScreen
+import com.example.hisab.features.privacy.presentation.PrivacyReviewScreen
+import com.example.hisab.features.privacy.presentation.PrivacyViewModel
 import com.example.hisab.features.groups.presentation.create.CreateHisabScreen
 import com.example.hisab.features.groups.presentation.dashboard.DashboardScreen
 import com.example.hisab.features.profile.presentation.ProfileScreen
@@ -77,7 +87,7 @@ class MainActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
         installSplashScreen()
-        val initialRoute = if (tokenManager.getUserId() != null) "dashboard" else "login"
+        val initialRoute = "splash"
 
         setContent {
             val themeMode by themePreferencesManager.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
@@ -94,7 +104,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    HisabNavHost(startDest = initialRoute)
+                    HisabNavHost(startDest = initialRoute, hasSession = tokenManager.getUserId() != null)
                 }
             }
         }
@@ -102,18 +112,39 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun HisabNavHost(startDest: String) {
+fun HisabNavHost(startDest: String, hasSession: Boolean = false) {
     val navController = rememberNavController()
     val sessionViewModel: SessionViewModel = hiltViewModel()
+    val privacyViewModel: PrivacyViewModel = hiltViewModel()
     val isAdmin by sessionViewModel.isAdmin.collectAsState()
     val requiresSignIn by sessionViewModel.requiresSignIn.collectAsState()
+    val reviewNeeded by sessionViewModel.privacyReviewNeeded.collectAsState()
+    val privacyState by privacyViewModel.state.collectAsState()
+    val backStack by navController.currentBackStackEntryAsState()
+    val route = backStack?.destination?.route
+
+    fun openLogin() {
+        navController.navigate("login") {
+            popUpTo(navController.graph.id) { inclusive = true }
+            launchSingleTop = true
+        }
+    }
 
     LaunchedEffect(requiresSignIn) {
         if (requiresSignIn && navController.currentDestination?.route != "login") {
-            navController.navigate("login") {
+            openLogin()
+        }
+    }
+
+    LaunchedEffect(route, reviewNeeded, privacyState.gate, requiresSignIn) {
+        if (route == null || requiresSignIn) return@LaunchedEffect
+        if ((reviewNeeded || privacyState.gate != PrivacyGate.Continue) && route !in privacyAccessibleRoutes) {
+            navController.navigate("session_entry") {
                 popUpTo(navController.graph.id) { inclusive = true }
                 launchSingleTop = true
             }
+        } else if (route == "session_entry" && !reviewNeeded && privacyState.gate == PrivacyGate.Continue) {
+            navController.navigate("dashboard") { popUpTo("session_entry") { inclusive = true } }
         }
     }
 
@@ -124,15 +155,53 @@ fun HisabNavHost(startDest: String) {
         navController = navController,
         startDestination = startDest
     ) {
+        composable("splash") {
+            SplashScreen(onFinished = {
+                val target = if (hasSession) "session_entry" else "login"
+                navController.navigate(target) {
+                    popUpTo("splash") { inclusive = true }
+                    launchSingleTop = true
+                }
+            })
+        }
+
         composable("login") {
             LoginScreen(
                 sessionExpired = requiresSignIn,
+                onForgotPassword = { navController.navigate("password_recovery") },
+                onHelp = { navController.navigate("faq") },
+                onPrivacyPolicy = { navController.navigate("privacy_policy") },
                 onNavigateToDashboard = {
-                    navController.navigate("dashboard") {
+                    navController.navigate("session_entry") {
                         popUpTo("login") { inclusive = true }
                     }
                  }
             )
+        }
+
+        composable("session_entry") {
+            PrivacyReviewScreen(privacyViewModel, onAccount = { navController.navigate("profile") },
+                onData = { navController.navigate("privacy_data") }, onSignOut = {
+                    privacyViewModel.signOut()
+                    openLogin()
+                })
+        }
+
+        composable("privacy_policy") {
+            PrivacyPolicyScreen(privacyViewModel, onBack = { navController.popBackStack() })
+        }
+
+        composable("privacy_data") {
+            PrivacyDataScreen(privacyViewModel, onBack = { navController.popBackStack() },
+                onPolicy = { navController.navigate("privacy_policy") })
+        }
+
+        composable("password_recovery") {
+            AccountRecoveryScreen(onBack = { navController.popBackStack() }, onHelp = { navController.navigate("faq") })
+        }
+
+        composable("verify_recovery_email") {
+            VerifyRecoveryEmailScreen(onBack = { navController.popBackStack() })
         }
 
         composable("dashboard") {
@@ -203,33 +272,47 @@ fun HisabNavHost(startDest: String) {
 
         composable("profile") {
             ProfileScreen(
+                onVerifyRecoveryEmail = { navController.navigate("verify_recovery_email") },
                 onNavigateBack = {
                     navController.popBackStack()
                 },
                 onNavigateToSettings = {
                     navController.navigate("settings")
                 },
-                onLoggedOut = {
-                    navController.navigate("login") {
-                        popUpTo(navController.graph.id) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                }
+                onLoggedOut = { openLogin() }
             )
         }
 
         composable("settings") {
             SettingsScreen(
+                onAbout = { navController.navigate("about") },
+                onFaq = { navController.navigate("faq") },
+                onPrivacy = { navController.navigate("privacy_data") },
                 onNavigateBack = {
                     navController.popBackStack()
                 }
             )
+        }
+
+        composable("about") {
+            AboutHisabScreen(onBack = { navController.popBackStack() }, onPolicy = { navController.navigate("privacy_policy") }, onOpenFaq = {
+                if (!navController.popBackStack("faq", inclusive = false)) navController.navigate("faq")
+            })
+        }
+
+        composable("faq") {
+            HisabFaqScreen(onBack = { navController.popBackStack() }, onAbout = {
+                if (!navController.popBackStack("about", inclusive = false)) navController.navigate("about")
+            })
         }
     }
     HisabFeedbackHost(feedback.state, Modifier.align(Alignment.BottomCenter))
     }
     }
 }
+
+private val privacyAccessibleRoutes = setOf("login", "session_entry", "profile", "settings", "privacy_policy", "privacy_data",
+    "password_recovery", "verify_recovery_email", "about", "faq")
 
 @Composable
 fun AdminGuardedContent(

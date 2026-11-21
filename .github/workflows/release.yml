@@ -97,6 +97,9 @@ jobs:
     timeout-minutes: 15
     environment: android-release
     steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
@@ -123,12 +126,10 @@ jobs:
           tools="$ANDROID_HOME/build-tools/34.0.0"
           source_apk=unsigned/app-release-unsigned.apk
           manifest=$("$tools/aapt" dump badging "$source_apk")
+          python3 scripts/ci/check_apk_identity.py --package com.example.hisab --label Hisab --version "${GITHUB_REF_NAME#v}" --previous "$PREVIOUS_VERSION_CODE" <<< "$manifest"
           package_line=$(sed -n '1p' <<< "$manifest")
-          [[ "$package_line" == "package: name='com.example.hisab' "* ]]
           code=$(sed -n "s/.* versionCode='\([1-9][0-9]*\)'.*/\1/p" <<< "$package_line")
           version=$(sed -n "s/.* versionName='\([^']*\)'.*/\1/p" <<< "$package_line")
-          [[ "$version" == "${GITHUB_REF_NAME#v}" && "$code" =~ ^[1-9][0-9]{0,9}$ ]]
-          ((code > PREVIOUS_VERSION_CODE && code <= 2100000000))
           umask 077
           keystore=$(mktemp "$RUNNER_TEMP/hisab-key.XXXXXX")
           trap 'rm -f -- "$keystore"' EXIT

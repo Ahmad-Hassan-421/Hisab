@@ -4,6 +4,8 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.hisab.data.db.User
+import com.example.hisab.features.profile.data.LocalProfilePhoto
+import com.example.hisab.features.profile.data.LocalProfilePhotoStore
 import com.example.hisab.features.profile.domain.UserRepository
 import com.example.hisab.util.SessionManager
 import com.example.hisab.util.ThemeMode
@@ -24,10 +26,12 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ProfileUiState(
+    val accountId: String? = null,
     val name: String = "",
     val email: String = "",
     val uniqueId: String = "",
     val profilePicUrl: String = "",
+    val localPhoto: LocalProfilePhoto = LocalProfilePhoto.Unset,
     val isDarkMode: Boolean = false,
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
@@ -43,12 +47,14 @@ class ProfileViewModel @Inject constructor(
     private val themePreferencesManager: ThemePreferencesManager,
     private val tokenManager: TokenManager,
     private val sessionManager: SessionManager,
+    private val photos: LocalProfilePhotoStore,
     private val failures: FailureReporter
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
     private var profileLoad: Job? = null
+    private var photoWrite: Job? = null
     private var nameEdited = false
 
     init {
@@ -62,8 +68,9 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             sessionManager.currentUserId.collectLatest { userId ->
                 profileLoad?.cancel()
+                photoWrite?.cancel()
                 nameEdited = false
-                _uiState.update { ProfileUiState(isDarkMode = it.isDarkMode) }
+                _uiState.update { ProfileUiState(accountId = userId, isDarkMode = it.isDarkMode) }
                 if (userId != null) loadUserProfile()
             }
         }
@@ -75,6 +82,17 @@ class ProfileViewModel @Inject constructor(
         profileLoad = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
+                val writeAtStart = photoWrite
+                val photo = try {
+                    photos.load(userId)
+                } catch (e: java.io.IOException) {
+                    failures.report("Read profile picture", e)
+                    LocalProfilePhoto.Removed
+                }
+                if (sessionManager.currentUserId.value != userId) return@launch
+                if (photoWrite === writeAtStart && !_uiState.value.isUploading) {
+                    _uiState.update { it.copy(localPhoto = photo) }
+                }
                 userRepository.getCurrentUser(userId).first()?.let(::showProfile)
                 val user = userRepository.fetchRemoteUser(userId, allowCached = false)
                 if (sessionManager.currentUserId.value != userId) return@launch
@@ -90,6 +108,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     private fun showProfile(user: User) {
+        if (user.id != sessionManager.currentUserId.value) return
         _uiState.update {
             it.copy(name = if (nameEdited) it.name else user.name, email = user.email,
                 uniqueId = user.uniqueId, profilePicUrl = user.profilePicUrl)
@@ -121,7 +140,7 @@ class ProfileViewModel @Inject constructor(
     fun updateProfile() {
         val userId = sessionManager.currentUserId.value ?: return
         val state = _uiState.value
-        if (state.isSaving || state.isUploading) return
+        if (state.accountId != userId || state.isSaving || state.isUploading) return
 
         if (state.name.isBlank()) {
             _uiState.update { it.copy(error = "Name cannot be empty") }
@@ -132,48 +151,57 @@ class ProfileViewModel @Inject constructor(
             _uiState.update { it.copy(isSaving = true, error = null, successMessage = null) }
             try {
                 val user = userRepository.fetchRemoteUser(userId, allowCached = false)
+                if (sessionManager.currentUserId.value != userId) return@launch
                 if (user == null) {
                     _uiState.update { it.copy(isSaving = false, error = AppFailure.MISSING.message) }
                     return@launch
                 }
                 userRepository.updateUser(user.copy(name = state.name))
+                if (sessionManager.currentUserId.value != userId) return@launch
                 if (_uiState.value.name == state.name) nameEdited = false
                 _uiState.update { it.copy(isSaving = false, successMessage = "Profile updated successfully") }
             } catch (e: Exception) {
                 val failure = failures.report("Save profile", e)
-                _uiState.update { it.copy(isSaving = false, error = failure.message) }
+                if (sessionManager.currentUserId.value == userId) {
+                    _uiState.update { it.copy(isSaving = false, error = failure.message) }
+                }
             }
         }
     }
 
-    fun uploadProfilePicture(uri: Uri) {
-        val userId = sessionManager.currentUserId.value ?: tokenManager.getUserId() ?: return
+    fun saveProfilePicture(accountId: String, uri: Uri) = changePhoto(accountId) { photos.save(accountId, uri) }
+
+    fun removeProfilePicture() {
+        val accountId = sessionManager.currentUserId.value ?: return
+        changePhoto(accountId) {
+            photos.remove(accountId)
+            LocalProfilePhoto.Removed
+        }
+    }
+
+    private fun changePhoto(accountId: String, change: suspend () -> LocalProfilePhoto) {
+        if (sessionManager.currentUserId.value != accountId || _uiState.value.accountId != accountId) return
         if (_uiState.value.isUploading || _uiState.value.isSaving) return
-        
-        viewModelScope.launch {
-            _uiState.update { it.copy(isUploading = true, error = null, successMessage = null) }
+
+        _uiState.update { it.copy(isUploading = true, error = null, successMessage = null) }
+        photoWrite = viewModelScope.launch {
             try {
-                val user = userRepository.fetchRemoteUser(userId, allowCached = false)
-                if (user == null) {
-                    _uiState.update { it.copy(isUploading = false, error = AppFailure.MISSING.message) }
-                    return@launch
-                }
-                val url = userRepository.uploadProfilePicture(uri)
-                userRepository.updateUser(user.copy(profilePicUrl = url))
+                val photo = change()
+                if (sessionManager.currentUserId.value != accountId) return@launch
                 _uiState.update {
-                    it.copy(
-                        isUploading = false,
-                        profilePicUrl = url,
-                        successMessage = "Profile picture updated"
-                    )
+                    it.copy(isUploading = false, localPhoto = photo, successMessage =
+                        if (photo == LocalProfilePhoto.Removed) "Picture reset on this device" else "Picture saved on this device")
                 }
             } catch (e: Exception) {
-                val failure = failures.report("Upload profile picture", e)
+                val message = if (e is LocalProfilePhotoStore.InvalidPhoto) {
+                    "Couldn’t read that crop. Choose a different picture."
+                } else {
+                    failures.report("Save profile picture", e)
+                    "Couldn’t save your picture on this device. Try again."
+                }
+                if (sessionManager.currentUserId.value != accountId) return@launch
                 _uiState.update {
-                    it.copy(
-                        isUploading = false,
-                        error = failure.message
-                    )
+                    it.copy(isUploading = false, error = message)
                 }
             }
         }

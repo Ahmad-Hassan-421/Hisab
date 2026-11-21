@@ -6,6 +6,7 @@ import com.hisab.server.models.HisabEntryDocument
 import com.hisab.server.models.HisabGroupDocument
 import com.hisab.server.models.HisabRequestDocument
 import com.hisab.server.plugins.RequestFailure
+import com.hisab.server.plugins.PrivacyAccess
 import com.hisab.server.plugins.authenticatedUserId
 import com.mongodb.client.model.FindOneAndUpdateOptions
 import com.mongodb.client.model.ReturnDocument
@@ -55,6 +56,7 @@ internal suspend fun lockGroupForMember(session: ClientSession, groupId: String,
 fun Route.hisabGroupRoutes() {
     authenticate("auth-jwt") {
         route("/groups") {
+            install(PrivacyAccess)
             get {
                 val userId = call.request.queryParameters["userId"] ?: return@get call.respondFailure(HttpStatusCode.BadRequest)
                 if (userId != call.authenticatedUserId) return@get call.respondFailure(HttpStatusCode.Forbidden)

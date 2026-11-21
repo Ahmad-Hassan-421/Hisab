@@ -55,6 +55,10 @@ class SettingsViewModel @Inject constructor(
 
     fun checkForUpdates() {
         if (_uiState.value.isCheckingForUpdate) return
+        if (BuildConfig.DEBUG && !BuildConfig.UPDATE_QA) {
+            _uiState.update { it.copy(checkError = "Use the release build to check for Hisab updates.") }
+            return
+        }
         _uiState.update { it.copy(isCheckingForUpdate = true, checkError = null) }
         viewModelScope.launch {
             try {

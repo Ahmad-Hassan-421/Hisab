@@ -2,6 +2,8 @@ package com.hisab.server.features.accounts
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.auth0.jwt.interfaces.Payload
+import com.hisab.server.models.UserDocument
 import java.util.Date
 
 object JwtUtil {
@@ -16,12 +18,13 @@ object JwtUtil {
     const val AUDIENCE = "hisab-app"
     private const val EXPIRY_MS = 7L * 24 * 60 * 60 * 1000 // 7 days
 
-    fun generateToken(userId: String, role: String): String {
+    fun generateToken(user: UserDocument): String {
         return JWT.create()
             .withAudience(AUDIENCE)
             .withIssuer(ISSUER)
-            .withClaim("userId", userId)
-            .withClaim("role", role)
+            .withClaim("userId", user.id)
+            .withClaim("role", user.role)
+            .withClaim("sessionVersion", user.sessionVersion)
             .withExpiresAt(Date(System.currentTimeMillis() + EXPIRY_MS))
             .sign(algorithm)
     }
@@ -32,3 +35,5 @@ object JwtUtil {
         .withClaimPresence("exp")
         .build()
 }
+
+internal fun Payload.hisabSessionVersion(): Long = getClaim("sessionVersion").asLong() ?: 0L

@@ -33,6 +33,7 @@ class ApiRequestRepository @Inject constructor(
         groupId = groupId,
         groupName = groupName,
         status = status ?: defaultStatus,
+        invitationMessage = invitationMessage,
         createdAt = createdAt
     )
 }

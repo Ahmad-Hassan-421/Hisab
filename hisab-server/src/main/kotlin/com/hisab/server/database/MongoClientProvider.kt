@@ -4,15 +4,20 @@ import com.hisab.server.models.*
 import com.mongodb.MongoException
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Indexes
+import com.mongodb.client.model.Filters
 import com.mongodb.reactivestreams.client.ClientSession
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import org.bson.Document
 import org.litote.kmongo.coroutine.CoroutineCollection
 import org.litote.kmongo.coroutine.coroutine
+import org.litote.kmongo.eq
 import org.litote.kmongo.reactivestreams.KMongo
+import java.util.concurrent.TimeUnit
 
 object MongoClientProvider {
     private val connectionString = requireNotNull(System.getenv("MONGO_URI")?.takeIf { it.isNotBlank() }) {
@@ -22,12 +27,30 @@ object MongoClientProvider {
     private val database = client.getDatabase(System.getenv("MONGO_DATABASE")?.takeIf { it.isNotBlank() } ?: "hisab_db")
 
     val users: CoroutineCollection<UserDocument> = database.getCollection()
+    val accountDirectory: CoroutineCollection<Document> = database.getCollection("userDocument")
+    val adminAudit: CoroutineCollection<Document> = database.getCollection("admin_audit_log")
+    val privacyRequests: CoroutineCollection<Document> = database.getCollection("privacy_data_requests")
     val entries: CoroutineCollection<HisabEntryDocument> = database.getCollection()
     val groups: CoroutineCollection<HisabGroupDocument> = database.getCollection()
     val requests: CoroutineCollection<HisabRequestDocument> = database.getCollection()
+    val inviteMessages: CoroutineCollection<InviteMessageDocument> = database.getCollection("invite_message_document")
+    val recoveryLimits: CoroutineCollection<Document> = database.getCollection("account_recovery_limits")
 
     suspend fun ping() {
         checkNotNull(database.runCommand<Document>(Document("ping", 1)))
+    }
+
+    suspend fun seedInviteMessages() {
+        val stream = MongoClientProvider::class.java.getResourceAsStream("/invite-messages.json")
+            ?: error("invite-messages.json resource is missing")
+        val raw = stream.bufferedReader().readText()
+        val entries = Json.decodeFromString<List<InviteMessageDocument>>(raw)
+        entries.forEach { entry ->
+            val existing = inviteMessages.findOne(InviteMessageDocument::key eq entry.key)
+            if (existing == null) {
+                inviteMessages.insertOne(entry)
+            }
+        }
     }
 
     suspend fun initialize() {
@@ -38,10 +61,16 @@ object MongoClientProvider {
         }
         users.ensureIndex(Indexes.ascending("email"), IndexOptions().unique(true))
         users.ensureIndex(Indexes.ascending("uniqueId"), IndexOptions().unique(true))
+        accountDirectory.ensureIndex(Indexes.descending("createdAt", "_id"))
+        accountDirectory.ensureIndex(Indexes.compoundIndex(Indexes.ascending("accountStatus"), Indexes.descending("createdAt", "_id")))
         groups.ensureIndex(Indexes.ascending("members"))
         entries.ensureIndex(Indexes.ascending("groupId"))
         requests.ensureIndex(Indexes.ascending("receiverId", "status"))
         requests.ensureIndex(Indexes.ascending("groupId", "senderId", "receiverId", "status"))
+        inviteMessages.ensureIndex(Indexes.ascending("key"), IndexOptions().unique(true))
+        recoveryLimits.ensureIndex(Indexes.ascending("expiresAt"), IndexOptions().expireAfter(0, TimeUnit.SECONDS))
+        privacyRequests.ensureIndex(Indexes.ascending("ownerId", "type"),
+            IndexOptions().unique(true).partialFilterExpression(Filters.eq("status", "pending")))
     }
 
     suspend fun <T> transaction(operation: suspend (ClientSession) -> T): T =

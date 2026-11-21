@@ -23,7 +23,9 @@ class TokenManager @Inject constructor(@ApplicationContext context: Context) {
 
     @Synchronized
     fun saveSession(token: String, userId: String) {
-        sharedPreferences.edit().putString("jwt_token", token).putString("user_id", userId).apply()
+        val edits = sharedPreferences.edit().putString("jwt_token", token).putString("user_id", userId)
+        if (getUserId() != userId) edits.remove("privacy_ack_version")
+        edits.apply()
     }
 
     fun getToken(): String? {
@@ -33,6 +35,15 @@ class TokenManager @Inject constructor(@ApplicationContext context: Context) {
     fun getUserId(): String? {
         return sharedPreferences.getString("user_id", null)
     }
+
+    @Synchronized
+    fun cachePrivacyVersion(userId: String, version: String?) {
+        if (getUserId() == userId) sharedPreferences.edit().putString("privacy_ack_version", version).apply()
+    }
+
+    @Synchronized
+    fun cachedPrivacyVersion(userId: String): String? =
+        if (getUserId() == userId) sharedPreferences.getString("privacy_ack_version", null) else null
 
     @Synchronized
     fun clearAll() {

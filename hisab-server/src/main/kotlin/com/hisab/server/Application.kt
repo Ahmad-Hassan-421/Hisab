@@ -19,7 +19,7 @@ fun Application.module() {
         uploadDirectory.canWrite()) { "UPLOAD_DIR must be a writable directory" }
 
     try {
-        runBlocking { withTimeout(20_000) { MongoClientProvider.initialize() } }
+        runBlocking { withTimeout(20_000) { MongoClientProvider.initialize(); MongoClientProvider.seedInviteMessages() } }
     } catch (error: Exception) {
         runCatching { MongoClientProvider.close() }
         log.error("MongoDB initialization failed (${error.javaClass.simpleName})")

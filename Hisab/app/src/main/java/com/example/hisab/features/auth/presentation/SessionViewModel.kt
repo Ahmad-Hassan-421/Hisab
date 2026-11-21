@@ -8,7 +8,6 @@ import com.example.hisab.util.TokenManager
 import com.example.hisab.util.FailureReporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -24,6 +23,7 @@ class SessionViewModel @Inject constructor(
     val role: StateFlow<String?> = sessionManager.role
     val isAdmin: StateFlow<Boolean> = sessionManager.isAdmin
     val requiresSignIn: StateFlow<Boolean> = sessionManager.requiresSignIn
+    val privacyReviewNeeded: StateFlow<Boolean> = sessionManager.privacyReviewNeeded
     
     init {
         checkAutoLogin()
@@ -33,17 +33,9 @@ class SessionViewModel @Inject constructor(
         val userId = tokenManager.getUserId()
         if (userId != null) {
             viewModelScope.launch {
-                // 1. Immediately hydrate session from local cached user in Room on cold start
-                val localUser = try {
-                    userRepository.getCurrentUser(userId).first()
-                } catch (e: Exception) {
-                    failures.report("Read saved session profile", e)
-                    null
-                }
                 if (tokenManager.getUserId() == userId) {
-                    sessionManager.setSession(userId = userId, role = localUser?.role ?: "user")
+                    sessionManager.setSession(userId = userId, role = "user")
                 }
-                // 2. Fetch latest remote state in background and update session
                 try {
                     val remoteUser = userRepository.fetchRemoteUser(userId, allowCached = false)
                     if (remoteUser != null && tokenManager.getUserId() == userId) {

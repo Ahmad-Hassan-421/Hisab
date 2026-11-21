@@ -22,7 +22,8 @@ data class AppUpdateResponse(
         val qaDownload = local != null && url.scheme == local.scheme && url.host == local.host &&
             url.port == local.port && url.host in setOf("localhost", "127.0.0.1", "10.0.2.2") &&
             url.username.isEmpty() && url.password.isEmpty() && url.query == null && url.fragment == null
-        if (versionCode !in 1..2_100_000_000 || (downloadUrl != expectedUrl && !qaDownload)) return null
+        val correctChannel = if (qaOrigin == null) downloadUrl == expectedUrl else qaDownload
+        if (versionCode !in 1..2_100_000_000 || !correctChannel) return null
         return VerifiedUpdate(versionCode, name, releaseNotes.orEmpty(), url.toString(), size, digest)
     }
 

@@ -12,13 +12,16 @@ class TokenInterceptor @Inject constructor(
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
-        if (request.url.encodedPath in setOf("/auth/login", "/auth/register")) return chain.proceed(request)
+        if (request.url.encodedPath in setOf("/auth/login", "/auth/register", "/auth/recovery/request", "/auth/recovery/reset", "/privacy/policy")) {
+            return chain.proceed(request)
+        }
 
         val token = tokenManager.getToken() ?: return chain.proceed(request)
         val response = chain.proceed(request.newBuilder().header("Authorization", "Bearer $token").build())
         if (response.code == 401 && tokenManager.clearIfMatching(token)) {
             sessionManager.expire()
         }
+        if (response.code == 428 && tokenManager.getToken() == token) sessionManager.requirePrivacyReview()
         return response
     }
 }

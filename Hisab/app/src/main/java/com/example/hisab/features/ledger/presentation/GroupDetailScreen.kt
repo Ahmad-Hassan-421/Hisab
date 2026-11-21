@@ -339,11 +339,11 @@ fun GroupDetailScreen(
                             OutlinedButton(enabled = canWrite, onClick = {
                                 viewModel.clearLedgerFormError()
                                 showRepaymentDialog = true
-                            }) { Text("Repayment") }
+                            }) { Text("Record a payment") }
                             OutlinedButton(enabled = canWrite, onClick = {
                                 viewModel.clearLedgerFormError()
                                 showIOweHimDialog = true
-                            }) { Text("Record debt") }
+                            }) { Text("Record money I owe") }
                             TextButton(enabled = !uiState.isLeaving, onClick = { showInviteDialog = true }) {
                                 Text("Invite member")
                             }

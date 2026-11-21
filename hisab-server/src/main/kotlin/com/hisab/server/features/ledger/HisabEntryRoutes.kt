@@ -8,6 +8,7 @@ import com.hisab.server.models.HisabEntryDocument
 import com.hisab.server.models.HisabGroupDocument
 import com.hisab.server.plugins.authenticatedUserId
 import com.hisab.server.plugins.RequestFailure
+import com.hisab.server.plugins.PrivacyAccess
 import com.hisab.server.plugins.respondFailure
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -147,6 +148,7 @@ private fun List<HisabEntryDocument>.isSettled(): Boolean =
 fun Route.hisabEntryRoutes() {
     authenticate("auth-jwt") {
         route("/entries") {
+            install(PrivacyAccess)
             get {
                 val groupId = call.request.queryParameters["groupId"]
                 if (groupId != null) {

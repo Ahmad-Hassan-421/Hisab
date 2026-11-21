@@ -1,0 +1,602 @@
+[
+  {
+    "key": "invite-message-001",
+    "text": "Good records make good friendships. Join me in keeping our Hisab clear!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-002",
+    "text": "Let's keep our numbers organized and our friendship stress-free.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-003",
+    "text": "A little organization goes a long way. You're invited to join our Hisab!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-004",
+    "text": "Let's keep everything clear, fair, and easy to follow.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-005",
+    "text": "Shared expenses are simpler when we track them together.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-006",
+    "text": "Join me so we can settle up without the guesswork.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-007",
+    "text": "Let's keep our balances honest and our plans simple.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-008",
+    "text": "A shared ledger keeps everyone on the same page.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-009",
+    "text": "Let's make money matters between us effortless.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-010",
+    "text": "Keeping track together builds trust and saves time.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-011",
+    "text": "Let's keep our expenses transparent and our friendship easy.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-012",
+    "text": "Join our Hisab and let's avoid any end-of-month confusion.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-013",
+    "text": "Let's record it once and settle it fairly.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-014",
+    "text": "A clear ledger is a happy friendship. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-015",
+    "text": "Let's keep our shared spending simple and transparent.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-016",
+    "text": "Join me in making our shared expenses easy to follow.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-017",
+    "text": "Let's keep every contribution visible and fair.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-018",
+    "text": "A shared Hisab keeps surprises out of our expenses.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-019",
+    "text": "Let's stay organized so money never gets awkward.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-020",
+    "text": "Join our Hisab and let's keep things balanced.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-021",
+    "text": "Let's track together and settle with confidence.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-022",
+    "text": "Clear numbers, calm friendships. You're invited to our Hisab.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-023",
+    "text": "Let's keep our shared costs simple and sorted.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-024",
+    "text": "Join me and let's keep our expenses in one place.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-025",
+    "text": "Let's make shared spending clear and stress-free.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-026",
+    "text": "A shared ledger makes splitting costs effortless.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-027",
+    "text": "Let's keep our balances fair and our plans on track.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-028",
+    "text": "Join our Hisab for simple, transparent shared expenses.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-029",
+    "text": "Let's keep our money matters clear and friendly.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-030",
+    "text": "Shared tracking keeps friendships smooth. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-031",
+    "text": "Let's stay on top of our expenses together.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-032",
+    "text": "Join me so our shared costs stay clear and fair.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-033",
+    "text": "Let's keep our ledger neat and our minds at ease.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-034",
+    "text": "A little tracking keeps everyone happy. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-035",
+    "text": "Let's make sure everyone pays their fair share.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-036",
+    "text": "Join our Hisab and let's keep balances simple.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-037",
+    "text": "Let's keep our shared expenses organized and clear.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-038",
+    "text": "Shared clarity makes every outing easier.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-039",
+    "text": "Join me and let's keep our money in order.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-040",
+    "text": "Let's track our shared costs without the confusion.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-041",
+    "text": "A shared Hisab keeps things fair for everyone.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-042",
+    "text": "Let's keep our expenses visible and settled.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-043",
+    "text": "Join our Hisab for clear, calm shared spending.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-044",
+    "text": "Let's make splitting costs straightforward and fair.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-045",
+    "text": "Shared tracking keeps friendships strong. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-046",
+    "text": "Let's keep our balances tidy and our plans simple.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-047",
+    "text": "Join me so we can settle up with ease.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-048",
+    "text": "Let's keep our shared expenses fair and transparent.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-049",
+    "text": "A shared ledger removes the guesswork from splitting.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-050",
+    "text": "Let's stay organized and keep money matters easy.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-051",
+    "text": "Join our Hisab and let's keep every balance tidy and clear.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-052",
+    "text": "Let's keep our costs clear and our friendship stronger.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-053",
+    "text": "Shared clarity beats end-of-month confusion. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-054",
+    "text": "Let's track together and settle fairly every time.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-055",
+    "text": "Join me to keep our shared spending simple.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-056",
+    "text": "Let's keep our expenses organized and stress-free.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-057",
+    "text": "A shared Hisab keeps every contribution clear.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-058",
+    "text": "Let's make shared money matters simple and fair.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-059",
+    "text": "Join our Hisab for transparent, friendly tracking.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-060",
+    "text": "Let's keep our balances clear and our plans on track.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-061",
+    "text": "Shared tracking makes every split fair. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-062",
+    "text": "Let's stay on top of our shared costs together.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-063",
+    "text": "Join me so our expenses stay clear and settled.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-064",
+    "text": "Let's keep our ledger organized and our minds calm.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-065",
+    "text": "A shared ledger keeps friendships fair. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-066",
+    "text": "Let's make splitting costs simple and transparent.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-067",
+    "text": "Join our Hisab and let's keep balances fair.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-068",
+    "text": "Let's keep our shared expenses clear and manageable.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-069",
+    "text": "Shared clarity keeps everyone happy. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-070",
+    "text": "Let's track our costs together and settle with ease.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-071",
+    "text": "Join me to keep our shared spending organized.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-072",
+    "text": "Let's keep our money matters simple and fair.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-073",
+    "text": "A shared Hisab makes every expense easy to follow.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-074",
+    "text": "Let's stay clear and settle up without stress.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-075",
+    "text": "Join our Hisab for simple, fair shared tracking.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-076",
+    "text": "Let's keep our balances tidy and our friendship easy.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-077",
+    "text": "Shared tracking keeps things fair. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-078",
+    "text": "Let's make our shared expenses clear and calm.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-079",
+    "text": "Join me so our balances stay fair and simple.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-080",
+    "text": "Let's keep our ledger clear and our plans on track.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-081",
+    "text": "A shared Hisab keeps money matters friendly. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-082",
+    "text": "Let's stay organized and settle up with confidence.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-083",
+    "text": "Join our Hisab and let's keep expenses transparent.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-084",
+    "text": "Let's keep our shared costs fair and easy to follow.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-085",
+    "text": "Shared clarity makes every plan simpler. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-086",
+    "text": "Let's track together and keep our balances neat.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-087",
+    "text": "Join me to keep our shared spending stress-free.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-088",
+    "text": "Let's keep our money matters clear and settled.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-089",
+    "text": "A shared ledger keeps everyone aligned. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-090",
+    "text": "Let's make shared expenses simple and transparent.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-091",
+    "text": "Join our Hisab for clear, fair, and friendly tracking.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-092",
+    "text": "Let's keep our balances fair and our plans smooth.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-093",
+    "text": "Shared tracking keeps friendships easy. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-094",
+    "text": "Let's stay organized so shared costs stay simple.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-095",
+    "text": "Join me so our expenses stay clear and fair.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-096",
+    "text": "Let's keep our ledger neat and our friendship strong.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-097",
+    "text": "A shared Hisab keeps every split fair. You're invited!",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-098",
+    "text": "Let's make money matters between us effortless and clear.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-099",
+    "text": "Join our Hisab and let's keep balances tidy.",
+    "active": true,
+    "language": "en"
+  },
+  {
+    "key": "invite-message-100",
+    "text": "Let's keep our shared expenses simple, fair, and clear.",
+    "active": true,
+    "language": "en"
+  }
+]

@@ -1,0 +1,11 @@
+# Password recovery
+
+Hisab previously recorded signup addresses without verifying inbox ownership. Signed-in users can now verify their registered address from Profile. An existing account keeps its login and can opt into recovery after verifying its address. Where a locked-out user never verified their email, account ownership must be established through support before anyone changes the account.
+
+The new **Forgot password?** action requests a one-time code through Brevo. The user copies the code from their mailbox and enters it in Hisab with a new password and confirmation. This keeps the credential out of URLs, URL logs, and Android deep links. Both unknown and unverified addresses receive the same public response as a verified address. Recoverable service failures and invalid or expired codes have dedicated states in the Android form.
+
+Codes expire after 20 minutes. MongoDB stores their SHA-256 digests and enforces request limits with expiring counters. Changing the BCrypt password hash, consuming the code, and incrementing the session version happen in a single document update. Profile edits now update only their own fields so they cannot overwrite credential, verification, or session state. Older session tokens continue to work until a password reset increments the stored version.
+
+The loopback suite uses disposable MongoDB and a local recipient inbox, with no provider credentials. It checks mailbox confirmation, generic responses, digest-only storage, expiry, reuse, concurrent consumption, request limits, session revocation, login with the new password, and preservation of verification across profile edits. A staging mailbox test with a configured Brevo key and authorized sender remains a release check. [Brevo transactional email](https://developers.brevo.com/docs/send-a-transactional-email)
+
+Hisab QA on the C51 verified an account's email, signed out, requested and submitted a recovery code, displayed reset confirmation, and signed in with the new password. The rebuilt server passed its JVM tests, the recovery integration suite, and all 93 existing API checks, including ledger calculations and invitation notifications. Android passed 34 JVM tests, zero lint errors and the QA build.

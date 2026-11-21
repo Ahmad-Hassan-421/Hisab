@@ -1,0 +1,43 @@
+{
+  "version": "2026-11-15",
+  "acknowledgmentVersion": "2026-11-15",
+  "effectiveDate": "15 November 2026",
+  "sections": [
+    {
+      "title": "About Hisab",
+      "body": "Hisab is a shared expense, debt, and repayment tracker created by Hantalyze. This notice describes the information the app needs to run accounts, shared ledgers, and related support. Acknowledging this notice records that you have read it."
+    },
+    {
+      "title": "Account and sign-in information",
+      "body": "When you register, Hisab collects your name, email address and password. The service stores a password hash, an internal account ID, a shareable Hisab ID, your registration date, and preferences such as your theme. Verification and password recovery use your registered inbox where eligible. Brevo delivers account emails. Recovery codes expire after 20 minutes, and the app server stores a digest to verify each code. A successful password reset revokes previous sessions."
+    },
+    {
+      "title": "Profile pictures",
+      "body": "New profile pictures are cropped and saved privately on the device for the signed-in account. Choosing a photo does not automatically upload it. Photos uploaded by earlier versions can remain on the server and may be displayed when the account is shown to another user. A reset of the local picture changes its display on that device."
+    },
+    {
+      "title": "Shared ledgers and invitations",
+      "body": "Hisab stores group names, membership and invitation records, and the amounts, descriptions, dates and people involved in ledger entries. Current group members can see the shared ledger, including entries that involve former members. Invitations identify the group and sender to the recipient. Your Hisab ID lets other users find your display name and invite you. Keep passwords, bank details and other unrelated private information out of descriptions and group names."
+    },
+    {
+      "title": "Storage and service providers",
+      "body": "Hisab stores account information, group data, invitations, agreement records, and data requests in MongoDB Atlas. The service runs on Render and can store previously uploaded photos on a server volume. Android keeps a local copy of previously loaded records, theme settings, private photos, and encrypted sign-in details. GitHub distributes app updates and hosts the public support tracker. These providers process information needed for their respective services."
+    },
+    {
+      "title": "Access and security",
+      "body": "Hisab uses authenticated requests, group membership checks, and administrator permissions to restrict access. Authorized administrators can see account information and manage account status. The service records administrative changes. Hisab uses HTTPS on its production service and stores password hashes. Keep your device and inbox secured and report concerns using a private channel."
+    },
+    {
+      "title": "How long information is kept",
+      "body": "Accounts, ledgers, invitations, and audit records are stored while they are needed to operate the service and maintain shared records. Leaving a Hisab can preserve earlier transactions for the other members. Local photos are removed if you clear app storage or uninstall it. Cached records and session details on your phone are governed by your app and device settings. A request to delete an account is reviewed separately from changes to records shared with other members."
+    },
+    {
+      "title": "Your data and privacy requests",
+      "body": "You can review your account in Profile and request access, correction, or deletion through Settings, under Privacy and data. The service records your request for review. The operator may need to verify your identity or consider shared records before responding. Depending on the laws applicable to you, you may have further rights or access to a privacy regulator. For general contact, use the support link in About and ask for a private channel. GitHub issues are public."
+    },
+    {
+      "title": "Children and changes to this notice",
+      "body": "Hisab is intended for people who can manage or participate in a shared expense ledger. If you believe a child’s information has been provided and needs attention, submit a privacy request or ask for a private support channel. The app shows the current version of this notice and asks you to acknowledge an updated version when its changes require it."
+    }
+  ]
+}

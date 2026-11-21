@@ -6,9 +6,11 @@ import com.hisab.server.features.media.ProfileImages
 import com.hisab.server.database.MongoClientProvider
 import com.hisab.server.models.HisabGroupDocument
 import com.hisab.server.models.HisabRequestDocument
+import com.hisab.server.models.InviteMessageDocument
 import com.hisab.server.models.UserDocument
 import com.hisab.server.plugins.authenticatedUserId
 import com.hisab.server.plugins.RequestFailure
+import com.hisab.server.plugins.PrivacyAccess
 import com.hisab.server.features.realtime.WebSocketManager
 import com.mongodb.client.model.Updates
 import com.hisab.server.plugins.respondFailure
@@ -19,10 +21,12 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.litote.kmongo.and
 import org.litote.kmongo.eq
+import com.mongodb.client.model.Aggregates
 
 @Serializable data class SendRequestRequest(val receiverUniqueId: String, val groupId: String)
 @Serializable data class UpdateRequestRequest(val status: String)
@@ -49,6 +53,7 @@ private fun HisabRequestDocument.toResponse(): HisabRequestDocument {
 fun Route.requestRoutes() {
     authenticate("auth-jwt") {
         route("/requests") {
+            install(PrivacyAccess)
             get {
                 val receiverId = call.request.queryParameters["receiverId"] ?: return@get call.respondFailure(HttpStatusCode.BadRequest)
                 if (receiverId != call.authenticatedUserId) return@get call.respondFailure(HttpStatusCode.Forbidden)
@@ -91,6 +96,10 @@ fun Route.requestRoutes() {
                     ))
                     if (pending != null) return@transaction pending to false
                     val storedPic = ProfileImages.storedPath(sender.profilePicUrl)
+                    val activeCount = MongoClientProvider.inviteMessages.countDocuments(InviteMessageDocument::active eq true)
+                    val skip = if (activeCount > 0) (Math.random() * activeCount).toInt() else 0
+                    val selectedMessage = MongoClientProvider.inviteMessages.find(InviteMessageDocument::active eq true)
+                        .skip(skip).limit(1).toList().firstOrNull()?.text
                     val invitation = HisabRequestDocument(
                         senderId = sender.id,
                         senderName = sender.name,
@@ -99,7 +108,8 @@ fun Route.requestRoutes() {
                         profilePictureUrl = storedPic,
                         receiverId = receiver.id,
                         groupId = group.id,
-                        groupName = group.name
+                        groupName = group.name,
+                        invitationMessage = selectedMessage
                     )
                     requests.insertOne(session, invitation)
                     invitation to true

@@ -2,6 +2,9 @@ package com.hisab.server.plugins
 
 import com.hisab.server.database.MongoClientProvider
 import com.hisab.server.features.accounts.authRoutes
+import com.hisab.server.features.accounts.adminRoutes
+import com.hisab.server.features.accounts.privacyRoutes
+import com.hisab.server.features.accounts.passwordRecoveryRoutes
 import com.hisab.server.features.accounts.userRoutes
 import com.hisab.server.features.groups.hisabGroupRoutes
 import com.hisab.server.features.ledger.hisabEntryRoutes
@@ -20,6 +23,9 @@ import java.io.File
 
 fun Application.configureRouting(uploadDirectory: File) {
     routing {
+        get("/health") {
+            call.respondText("{\"status\":\"ok\"}", ContentType.Application.Json, HttpStatusCode.OK)
+        }
         get("/healthz") {
             val ready = try {
                 withTimeoutOrNull(2_000) { MongoClientProvider.ping(); true } == true
@@ -28,7 +34,19 @@ fun Application.configureRouting(uploadDirectory: File) {
             }
             if (ready) call.respondText("ok") else call.respondText("unavailable", status = HttpStatusCode.ServiceUnavailable)
         }
+        get("/ready") {
+            val ready = try {
+                withTimeoutOrNull(2_000) { MongoClientProvider.ping(); true } == true
+            } catch (_: MongoException) {
+                false
+            }
+            if (ready) call.respondText("{\"status\":\"ready\"}", ContentType.Application.Json, HttpStatusCode.OK)
+            else call.respondText("{\"status\":\"not_ready\"}", ContentType.Application.Json, HttpStatusCode.ServiceUnavailable)
+        }
         authRoutes()
+        passwordRecoveryRoutes()
+        adminRoutes()
+        privacyRoutes()
         userRoutes()
         hisabGroupRoutes()
         hisabEntryRoutes()

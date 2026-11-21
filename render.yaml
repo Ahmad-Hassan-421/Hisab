@@ -8,7 +8,7 @@ services:
     dockerfilePath: ./hisab-server/Dockerfile
     dockerContext: ./hisab-server
     autoDeployTrigger: 'off'
-    healthCheckPath: /healthz
+    healthCheckPath: /health
     disk:
       name: hisab-profile-images
       mountPath: /var/data

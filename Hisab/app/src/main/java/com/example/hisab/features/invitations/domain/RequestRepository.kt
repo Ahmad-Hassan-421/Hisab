@@ -11,6 +11,7 @@ data class HisabRequest(
     val groupId: String = "",
     val groupName: String = "",
     val status: String = "pending",
+    val invitationMessage: String? = null,
     val createdAt: Long = 0L
 )
 

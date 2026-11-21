@@ -17,14 +17,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.hisab.features.profile.data.LocalProfilePhoto
 import com.example.hisab.util.Constants
 
 @Composable
-fun HisabAvatar(url: String?, modifier: Modifier = Modifier, description: String? = null) {
-    val source = remember(url) { Constants.profileImageUrl(url) }
+fun HisabAvatar(url: String?, modifier: Modifier = Modifier, description: String? = null,
+                localPhoto: LocalProfilePhoto = LocalProfilePhoto.Unset) {
+    val context = LocalContext.current
+    val source = remember(context, url, localPhoto) {
+        when (localPhoto) {
+            LocalProfilePhoto.Unset -> Constants.profileImageUrl(url)
+            LocalProfilePhoto.Removed -> null
+            is LocalProfilePhoto.Selected -> ImageRequest.Builder(context).data(localPhoto.file)
+                .memoryCacheKey("${localPhoto.file.path}:${localPhoto.revision}").build()
+        }
+    }
     var loaded by remember(source) { mutableStateOf(false) }
     Box(
         modifier.clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer).semantics {

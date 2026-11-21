@@ -8,6 +8,7 @@ import com.example.hisab.features.auth.data.AuthResponse
 import com.example.hisab.features.auth.data.LoginRequest
 import com.example.hisab.features.auth.data.RegisterRequest
 import com.example.hisab.features.profile.domain.UserRepository
+import com.example.hisab.features.privacy.data.PrivacyRepository
 import com.example.hisab.util.AppFailure
 import com.example.hisab.util.FailureReporter
 import com.example.hisab.util.SessionManager
@@ -17,9 +18,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import javax.inject.Inject
 
 data class AuthUiState(
@@ -31,7 +32,9 @@ data class AuthUiState(
     val isSignedIn: Boolean = false,
     val error: String? = null,
     val successMessage: String? = null,
-    val isLoginMode: Boolean = true
+    val isLoginMode: Boolean = true,
+    val privacyPolicyVersion: String? = null,
+    val privacyAcknowledged: Boolean = false
 )
 
 @HiltViewModel
@@ -40,6 +43,7 @@ class AuthViewModel @Inject constructor(
     private val sessionManager: SessionManager,
     private val tokenManager: TokenManager,
     private val apiService: HisabApiService,
+    private val privacy: PrivacyRepository,
     private val failures: FailureReporter
 ) : ViewModel() {
 
@@ -48,20 +52,22 @@ class AuthViewModel @Inject constructor(
 
     init {
         checkAuthState()
+        viewModelScope.launch {
+            privacy.policy.collect { document ->
+                _uiState.update { state ->
+                    if (state.privacyPolicyVersion == document?.version) state
+                    else state.copy(privacyPolicyVersion = document?.version, privacyAcknowledged = false)
+                }
+            }
+        }
     }
 
     private fun checkAuthState() {
         val savedUserId = tokenManager.getUserId()
         if (savedUserId != null) {
             viewModelScope.launch {
-                val localUser = try {
-                    userRepository.getCurrentUser(savedUserId).first()
-                } catch (e: Exception) {
-                    failures.report("Read saved account", e)
-                    null
-                }
                 val restored = tokenManager.getUserId() == savedUserId
-                if (restored) sessionManager.setSession(savedUserId, localUser?.role ?: "user")
+                if (restored) sessionManager.setSession(savedUserId, "user")
                 _uiState.update { it.copy(isSignedIn = restored, isLoading = false) }
 
                 try {
@@ -102,9 +108,15 @@ class AuthViewModel @Inject constructor(
                 error = null,
                 successMessage = null,
                 confirmPassword = "",
-                name = ""
+                name = "",
+                privacyAcknowledged = false
             )
         }
+        if (!_uiState.value.isLoginMode) viewModelScope.launch { privacy.refreshPolicy() }
+    }
+
+    fun acknowledgePrivacy(acknowledged: Boolean) {
+        _uiState.update { it.copy(privacyAcknowledged = acknowledged && it.privacyPolicyVersion != null, error = null) }
     }
 
     fun clearError() {
@@ -158,12 +170,17 @@ class AuthViewModel @Inject constructor(
             _uiState.update { it.copy(error = "Please enter a valid email address") }
             return
         }
-        if (!validatePassword(state.password)) {
-            _uiState.update { it.copy(error = "Password must be at least 8 characters, contain a letter, a number and a special character") }
+        if (!validNewPassword(state.password)) {
+            _uiState.update { it.copy(error = "Use at least 8 characters with a letter, number and special character. Keep it within 72 bytes.") }
             return
         }
         if (state.password != state.confirmPassword) {
             _uiState.update { it.copy(error = "Passwords do not match") }
+            return
+        }
+        val policyVersion = state.privacyPolicyVersion
+        if (!state.privacyAcknowledged || policyVersion == null) {
+            _uiState.update { it.copy(error = "Review and acknowledge the Privacy Policy to create an account.") }
             return
         }
 
@@ -171,7 +188,7 @@ class AuthViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                establishSession(apiService.register(RegisterRequest(state.name, state.email, state.password)))
+                establishSession(apiService.register(RegisterRequest(state.name, state.email, state.password, policyVersion)))
 
                 _uiState.update {
                     it.copy(
@@ -185,6 +202,12 @@ class AuthViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (e is HttpException && e.code() == 428) {
+                    _uiState.update { it.copy(isLoading = false, privacyAcknowledged = false,
+                        error = "The Privacy Policy has changed. Review the latest version and try again.") }
+                    privacy.refreshPolicy()
+                    return@launch
+                }
                 val failure = failures.report("Create account", e)
                 val userFriendlyMsg = if (failure == AppFailure.CONFLICT) "An account with this email already exists." else failure.message
                 _uiState.update {
@@ -226,11 +249,4 @@ class AuthViewModel @Inject constructor(
         return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
     }
 
-    private fun validatePassword(password: String): Boolean {
-        if (password.length < 8) return false
-        val hasLetter = password.any { it.isLetter() }
-        val hasDigit = password.any { it.isDigit() }
-        val hasSpecial = password.any { !it.isLetterOrDigit() }
-        return hasLetter && hasDigit && hasSpecial
-    }
 }

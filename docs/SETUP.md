@@ -37,4 +37,4 @@ Set-Location Hisab
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-The QA package is `com.example.hisab.qa`. For a standard debug build, omit `-PHISAB_QA=true`. An emulator can use `-PHISAB_DEBUG_API_URL=http://10.0.2.2:8081/` or ADB reverse. An HTTPS staging origin can be supplied to a standard debug build with the same property.
+The QA package is `com.example.hisab.qa` and appears as **Hisab QA**. A standard debug build omits `-PHISAB_QA=true`, uses `com.example.hisab.debug`, and appears as **Hisab Debug**. Production remains `com.example.hisab`, labeled **Hisab**. An emulator can use `-PHISAB_DEBUG_API_URL=http://10.0.2.2:8081/` or ADB reverse. An HTTPS staging origin can be supplied to a standard debug build with the same property.

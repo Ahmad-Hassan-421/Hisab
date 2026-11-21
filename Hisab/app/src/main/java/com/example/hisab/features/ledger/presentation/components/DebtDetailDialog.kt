@@ -44,7 +44,7 @@ fun DebtDetailDialog(
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             val type = when (entry.type) {
                                 "DIRECT_DEBT" -> "Direct debt"
-                                "REPAYMENT" -> "Repayment"
+                                "REPAYMENT" -> "Payment"
                                 else -> "Expense"
                             }
                             val description = when {

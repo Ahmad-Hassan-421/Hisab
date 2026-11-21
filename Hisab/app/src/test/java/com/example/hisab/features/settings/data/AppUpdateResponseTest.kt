@@ -30,5 +30,6 @@ class AppUpdateResponseTest {
         assertNull(local.validate(null))
         assertNull(local.validate("http://127.0.0.1:18094/"))
         assertTrue(local.validate("http://127.0.0.1:18093/") != null)
+        assertNull(release.validate("http://127.0.0.1:18093/"))
     }
 }

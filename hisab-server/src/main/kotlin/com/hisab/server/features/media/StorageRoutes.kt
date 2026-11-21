@@ -1,6 +1,8 @@
 package com.hisab.server.features.media
 
 import com.hisab.server.plugins.respondFailure
+import com.hisab.server.plugins.privacyAcknowledged
+import com.hisab.server.features.accounts.privacyAcknowledgmentRequiredStatus
 import io.ktor.http.content.*
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -23,6 +25,9 @@ private const val MAX_PROFILE_BYTES = 5 * 1024 * 1024
 fun Route.storageRoutes(uploadDirectory: File) {
     authenticate("auth-jwt") {
         post("/upload/profile-pic") {
+            if (!call.privacyAcknowledged) {
+                return@post call.respondFailure(privacyAcknowledgmentRequiredStatus, "Acknowledge the current Privacy Policy to continue")
+            }
             var bytes: ByteArray? = null
             var invalid = false
             call.receiveMultipart().forEachPart { part ->

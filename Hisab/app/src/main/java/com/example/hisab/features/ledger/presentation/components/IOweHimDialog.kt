@@ -40,7 +40,7 @@ fun IOweHimDialog(
         onDismissRequest = {
             if (!isLoading) onDismiss()
         },
-        title = { Text("Record debt") },
+        title = { Text("Record money I owe") },
         text = {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                 Text(

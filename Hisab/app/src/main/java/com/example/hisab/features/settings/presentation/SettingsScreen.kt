@@ -26,7 +26,8 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(onNavigateBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(onNavigateBack: () -> Unit, onAbout: () -> Unit, onFaq: () -> Unit, onPrivacy: () -> Unit,
+                   viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
     val download by viewModel.downloadStatus.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
@@ -143,6 +144,14 @@ fun SettingsScreen(onNavigateBack: () -> Unit, viewModel: SettingsViewModel = hi
                             FilterChip(selected = themeMode == mode, onClick = { viewModel.setThemeMode(mode) }, label = { Text(label) })
                         }
                     }
+                }
+            }
+            Text("Help", Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge)
+            OutlinedCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(8.dp)) {
+                    TextButton(onClick = onAbout) { Text("About Hisab") }
+                    TextButton(onClick = onFaq) { Text("Frequently asked questions") }
+                    TextButton(onClick = onPrivacy) { Text("Privacy and data") }
                 }
             }
         }

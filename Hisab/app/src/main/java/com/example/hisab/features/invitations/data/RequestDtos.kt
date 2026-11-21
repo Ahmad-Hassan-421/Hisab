@@ -13,6 +13,7 @@ data class HisabRequestDto(
     val groupId: String,
     val groupName: String,
     val status: String?,
+    val invitationMessage: String? = null,
     val createdAt: Long = 0L
 )
 
