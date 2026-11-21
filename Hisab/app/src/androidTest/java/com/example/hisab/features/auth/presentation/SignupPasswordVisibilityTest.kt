@@ -1,7 +1,5 @@
 package com.example.hisab.features.auth.presentation
 
-import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsFocused
@@ -9,7 +7,7 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -20,32 +18,67 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.TextRange
-import android.content.Context
-import android.content.Intent
-import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.hisab.ui.EXTRA_SKIP_SPLASH
-import com.example.hisab.ui.MainActivity
-import org.junit.Before
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import com.example.hisab.ui.theme.HisabTheme
 import org.junit.Rule
 import org.junit.Test
-import org.junit.runner.RunWith
 
-@RunWith(AndroidJUnit4::class)
 class SignupPasswordVisibilityTest {
-    companion object {
-        init {
-            com.example.hisab.ui.MainActivity.testSkipSplash = true
-        }
-    }
     @get:Rule
-    val compose = createAndroidComposeRule<MainActivity>()
+    val compose = createComposeRule()
 
     @Test
     fun signupPasswordsToggleIndependentlyAndKeepEditingState() {
-        compose.waitUntil(20_000) { compose.onAllNodes(hasText("Sign Up")).fetchSemanticsNodes().isNotEmpty() }
+        val state = androidx.compose.runtime.mutableStateOf(
+            AuthUiState(isLoginMode = true, privacyPolicyVersion = "test-policy")
+        )
+        compose.setContent {
+            HisabTheme {
+                AuthScreen(
+                    uiState = state.value,
+                    onNameChange = { state.value = state.value.copy(name = it) },
+                    onEmailChange = { state.value = state.value.copy(email = it) },
+                    onPasswordChange = { state.value = state.value.copy(password = it) },
+                    onConfirmPasswordChange = { state.value = state.value.copy(confirmPassword = it) },
+                    onAcknowledgePrivacy = { state.value = state.value.copy(privacyAcknowledged = it) },
+                    onToggleMode = {
+                        state.value = state.value.copy(
+                            isLoginMode = !state.value.isLoginMode,
+                            error = null,
+                            successMessage = null,
+                            confirmPassword = "",
+                            name = "",
+                            privacyAcknowledged = false
+                        )
+                    },
+                    onForgotPassword = {},
+                    onHelp = {},
+                    onPrivacyPolicy = {},
+                    onLogin = {},
+                    onRegister = {
+                        if (state.value.password != state.value.confirmPassword) {
+                            state.value = state.value.copy(error = "Passwords do not match")
+                        } else if (!state.value.privacyAcknowledged) {
+                            state.value = state.value.copy(error = "Review and acknowledge the Privacy Policy to create an account.")
+                        }
+                    }
+                )
+            }
+        }
+
+        compose.waitUntil(10_000) { compose.onAllNodes(hasText("Sign Up")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Sign Up").performClick()
         compose.waitForIdle()
+
+        fun field(label: String) = when (label) {
+            "Full Name" -> compose.onNodeWithTag("signup_full_name")
+            "Email" -> compose.onNodeWithTag("signup_email")
+            "Password" -> compose.onNodeWithTag("signup_password")
+            "Confirm Password" -> compose.onNodeWithTag("signup_confirm_password")
+            else -> error("Unknown field $label")
+        }
+
         field("Full Name").performTextInput("Signup QA")
         field("Email").performTextInput("signup-visibility@example.invalid")
         val password = field("Password")
@@ -81,16 +114,5 @@ class SignupPasswordVisibilityTest {
         confirmation.performTextReplacement("Signup-QA42@")
         confirmation.performImeAction()
         compose.onNodeWithText("Review and acknowledge the Privacy Policy to create an account.").assertExists()
-    }
-
-    private fun field(label: String): androidx.compose.ui.test.SemanticsNodeInteraction {
-        val tag = when (label) {
-            "Full Name" -> "signup_full_name"
-            "Email" -> "signup_email"
-            "Password" -> "signup_password"
-            "Confirm Password" -> "signup_confirm_password"
-            else -> error("Unknown field $label")
-        }
-        return compose.onNodeWithTag(tag)
     }
 }

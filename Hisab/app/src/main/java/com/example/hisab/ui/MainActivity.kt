@@ -83,9 +83,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val savedTheme = getSharedPreferences(SPLASH_PREFS_NAME, android.content.Context.MODE_PRIVATE)
             .getString(SPLASH_THEME_KEY, null)
-        val systemIsDark = resources.configuration.uiMode and
-            android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
-            android.content.res.Configuration.UI_MODE_NIGHT_YES
         val splashIsDark = when (savedTheme) {
             "dark"  -> true
             "light" -> false
@@ -116,7 +113,7 @@ class MainActivity : ComponentActivity() {
                     if (showSplash) {
                         SplashScreen(onFinished = { showSplash = false })
                     } else {
-                        HisabNavHost(startDest = splashTarget, hasSession = tokenManager.getUserId() != null)
+                        HisabNavHost(startDest = splashTarget)
                     }
                 }
             }
@@ -125,7 +122,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun HisabNavHost(startDest: String, hasSession: Boolean = false) {
+fun HisabNavHost(startDest: String) {
     val navController = rememberNavController()
     val sessionViewModel: SessionViewModel = hiltViewModel()
     val privacyViewModel: PrivacyViewModel = hiltViewModel()
