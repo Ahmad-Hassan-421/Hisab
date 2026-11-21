@@ -241,7 +241,7 @@ fun AuthScreen(
 
 @Composable
 private fun PasswordVisibilityToggle(visible: Boolean, field: String, onToggle: () -> Unit) {
-    IconButton(onClick = onToggle) {
+    IconButton(onClick = onToggle, modifier = Modifier.testTag("toggle_${field.replace(" ", "_")}_visibility")) {
         Icon(imageVector = if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = if (visible) "Hide $field" else "Show $field")
     }
 }

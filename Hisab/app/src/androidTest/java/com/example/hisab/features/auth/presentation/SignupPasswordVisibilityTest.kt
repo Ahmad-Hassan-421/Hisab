@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -70,12 +71,15 @@ class SignupPasswordVisibilityTest {
         compose.waitUntil(10_000) { compose.onAllNodes(hasText("Sign Up")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Sign Up").performClick()
         compose.waitForIdle()
+        compose.waitUntil(10_000) {
+            compose.onAllNodes(hasTestTag("signup_full_name"), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
 
         fun field(label: String) = when (label) {
-            "Full Name" -> compose.onNodeWithTag("signup_full_name")
-            "Email" -> compose.onNodeWithTag("signup_email")
-            "Password" -> compose.onNodeWithTag("signup_password")
-            "Confirm Password" -> compose.onNodeWithTag("signup_confirm_password")
+            "Full Name" -> compose.onNodeWithTag("signup_full_name", useUnmergedTree = true)
+            "Email" -> compose.onNodeWithTag("signup_email", useUnmergedTree = true)
+            "Password" -> compose.onNodeWithTag("signup_password", useUnmergedTree = true)
+            "Confirm Password" -> compose.onNodeWithTag("signup_confirm_password", useUnmergedTree = true)
             else -> error("Unknown field $label")
         }
 
