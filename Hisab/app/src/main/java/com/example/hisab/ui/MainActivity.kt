@@ -19,6 +19,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -87,7 +90,6 @@ class MainActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
         installSplashScreen()
-        val initialRoute = "splash"
 
         setContent {
             val themeMode by themePreferencesManager.themeMode.collectAsState(initial = ThemeMode.LIGHT)
@@ -104,7 +106,13 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    HisabNavHost(startDest = initialRoute, hasSession = tokenManager.getUserId() != null)
+                    var showSplash by remember { mutableStateOf(true) }
+                val splashTarget = if (tokenManager.getUserId() != null) "session_entry" else "login"
+                if (showSplash) {
+                    SplashScreen(onFinished = { showSplash = false })
+                } else {
+                    HisabNavHost(startDest = splashTarget, hasSession = tokenManager.getUserId() != null)
+                }
                 }
             }
         }
@@ -155,16 +163,6 @@ fun HisabNavHost(startDest: String, hasSession: Boolean = false) {
         navController = navController,
         startDestination = startDest
     ) {
-        composable("splash") {
-            SplashScreen(onFinished = {
-                val target = if (hasSession) "session_entry" else "login"
-                navController.navigate(target) {
-                    popUpTo("splash") { inclusive = true }
-                    launchSingleTop = true
-                }
-            })
-        }
-
         composable("login") {
             LoginScreen(
                 sessionExpired = requiresSignIn,
