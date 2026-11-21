@@ -1,6 +1,5 @@
 package com.example.hisab.features.auth.presentation
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,7 +24,10 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -42,12 +44,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -96,188 +96,211 @@ fun LoginScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 32.dp),
+                .padding(horizontal = 24.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             DynamicLogo(
-                size = 140.dp,
+                size = 120.dp,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
-            
+
             Text(
                 text = "Hisab",
-                fontSize = 40.sp,
+                fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
-
             Text(
-                text = "Your Debt Tracker",
+                text = "Shared ledger for clear, fair balances",
                 fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = if (uiState.isLoginMode) "Welcome Back" else "Create Account",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onBackground
+                text = "Created by Hantalyze",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            if (sessionExpired) {
-                Text(AppFailure.SESSION_EXPIRED.message, color = MaterialTheme.colorScheme.error)
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            if (!uiState.isLoginMode) {
-                OutlinedTextField(
-                    value = uiState.name,
-                    onValueChange = { viewModel.onNameChange(it) },
-                    label = { Text("Full Name") },
-                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Name") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            OutlinedTextField(
-                value = uiState.email,
-                onValueChange = { viewModel.onEmailChange(it) },
-                label = { Text("Email") },
-                leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email") },
+            ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Next
-                )
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = uiState.password,
-                onValueChange = { viewModel.onPasswordChange(it) },
-                label = { Text("Password") },
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Password") },
-                trailingIcon = {
-                    PasswordVisibilityToggle(passwordVisible, "password") { passwordVisible = !passwordVisible }
-                },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = if (uiState.isLoginMode) ImeAction.Done else ImeAction.Next
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
                 ),
-                keyboardActions = if (uiState.isLoginMode) {
-                    KeyboardActions(onDone = {
-                        focusManager.clearFocus()
-                        viewModel.login()
-                    })
-                } else {
-                    KeyboardActions(onNext = { confirmationFocus.requestFocus() })
-                }
-            )
-
-            if (uiState.isLoginMode) {
-                TextButton(onClick = onForgotPassword, enabled = !uiState.isLoading, modifier = Modifier.align(Alignment.End)) {
-                    Text("Forgot password?")
-                }
-            }
-
-            if (!uiState.isLoginMode) {
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = uiState.confirmPassword,
-                    onValueChange = { viewModel.onConfirmPasswordChange(it) },
-                    label = { Text("Confirm Password") },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Confirm Password") },
-                    trailingIcon = {
-                        PasswordVisibilityToggle(confirmationVisible, "confirm password") { confirmationVisible = !confirmationVisible }
-                    },
-                    visualTransformation = if (confirmationVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth().focusRequester(confirmationFocus),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(onDone = {
-                        focusManager.clearFocus()
-                        viewModel.register()
-                    })
-                )
-                val canAcknowledge = uiState.privacyPolicyVersion != null && !uiState.isLoading
-                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(value = uiState.privacyAcknowledged,
-                    enabled = canAcknowledge, role = Role.Checkbox, onValueChange = viewModel::acknowledgePrivacy),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = uiState.privacyAcknowledged, onCheckedChange = null, enabled = canAcknowledge)
-                    Text("I acknowledge the Privacy Policy", modifier = Modifier.padding(start = 12.dp),
-                        style = MaterialTheme.typography.bodyMedium)
-                }
-                TextButton(onClick = onPrivacyPolicy, modifier = Modifier.align(Alignment.Start)) {
-                    Text("Read Privacy Policy")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            uiState.error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error)
-                Spacer(Modifier.height(8.dp))
-            }
-            Button(
-                onClick = {
-                    focusManager.clearFocus()
-                    if (uiState.isLoginMode) viewModel.login() else viewModel.register()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                enabled = !uiState.isLoading,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
             ) {
-                ActionLabel(
-                    label = if (uiState.isLoginMode) "Log In" else "Register",
-                    busyLabel = if (uiState.isLoginMode) "Signing in…" else "Creating account…",
-                    busy = uiState.isLoading
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (uiState.isLoginMode) "Don't have an account?" else "Already have an account?",
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    fontSize = 14.sp
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                TextButton(onClick = { viewModel.toggleAuthMode() }) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text(
-                        text = if (uiState.isLoginMode) "Sign Up" else "Log In",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        text = if (uiState.isLoginMode) "Welcome back" else "Create account",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    if (sessionExpired) {
+                        Text(AppFailure.SESSION_EXPIRED.message, color = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
+                    if (!uiState.isLoginMode) {
+                        OutlinedTextField(
+                            value = uiState.name,
+                            onValueChange = { viewModel.onNameChange(it) },
+                            label = { Text("Full Name") },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Name") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
+                    OutlinedTextField(
+                        value = uiState.email,
+                        onValueChange = { viewModel.onEmailChange(it) },
+                        label = { Text("Email") },
+                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = uiState.password,
+                        onValueChange = { viewModel.onPasswordChange(it) },
+                        label = { Text("Password") },
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Password") },
+                        trailingIcon = {
+                            PasswordVisibilityToggle(passwordVisible, "password") { passwordVisible = !passwordVisible }
+                        },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = if (uiState.isLoginMode) ImeAction.Done else ImeAction.Next
+                        ),
+                        keyboardActions = if (uiState.isLoginMode) {
+                            KeyboardActions(onDone = {
+                                focusManager.clearFocus()
+                                viewModel.login()
+                            })
+                        } else {
+                            KeyboardActions(onNext = { confirmationFocus.requestFocus() })
+                        }
+                    )
+
+                    if (uiState.isLoginMode) {
+                        TextButton(onClick = onForgotPassword, enabled = !uiState.isLoading, modifier = Modifier.align(Alignment.End)) {
+                            Text("Forgot password?")
+                        }
+                    }
+
+                    if (!uiState.isLoginMode) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = uiState.confirmPassword,
+                            onValueChange = { viewModel.onConfirmPasswordChange(it) },
+                            label = { Text("Confirm Password") },
+                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Confirm Password") },
+                            trailingIcon = {
+                                PasswordVisibilityToggle(confirmationVisible, "confirm password") { confirmationVisible = !confirmationVisible }
+                            },
+                            visualTransformation = if (confirmationVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth().focusRequester(confirmationFocus),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                imeAction = ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(onDone = {
+                                focusManager.clearFocus()
+                                viewModel.register()
+                            })
+                        )
+                        val canAcknowledge = uiState.privacyPolicyVersion != null && !uiState.isLoading
+                        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(value = uiState.privacyAcknowledged,
+                            enabled = canAcknowledge, role = Role.Checkbox, onValueChange = viewModel::acknowledgePrivacy),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = uiState.privacyAcknowledged, onCheckedChange = null, enabled = canAcknowledge)
+                            Text("I acknowledge the Privacy Policy", modifier = Modifier.padding(start = 12.dp),
+                                style = MaterialTheme.typography.bodyMedium)
+                        }
+                        TextButton(onClick = onPrivacyPolicy, modifier = Modifier.align(Alignment.Start)) {
+                            Text("Read Privacy Policy")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    uiState.error?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.height(8.dp))
+                    }
+
+                    Button(
+                        onClick = {
+                            focusManager.clearFocus()
+                            if (uiState.isLoginMode) viewModel.login() else viewModel.register()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        enabled = !uiState.isLoading,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        ActionLabel(
+                            label = if (uiState.isLoginMode) "Log In" else "Register",
+                            busyLabel = if (uiState.isLoginMode) "Signing in…" else "Creating account…",
+                            busy = uiState.isLoading
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (uiState.isLoginMode) "Don't have an account?" else "Already have an account?",
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        TextButton(onClick = { viewModel.toggleAuthMode() }) {
+                            Text(
+                                text = if (uiState.isLoginMode) "Sign Up" else "Log In",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+
+                    TextButton(onClick = onHelp) { Text("Help and support") }
                 }
             }
-            TextButton(onClick = onHelp) { Text("Help and support") }
         }
     }
 }

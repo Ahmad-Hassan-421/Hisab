@@ -16,6 +16,7 @@ import org.bson.Document
 import org.litote.kmongo.coroutine.CoroutineCollection
 import org.litote.kmongo.coroutine.coroutine
 import org.litote.kmongo.eq
+import com.mongodb.client.model.Updates
 import org.litote.kmongo.reactivestreams.KMongo
 import java.util.concurrent.TimeUnit
 
@@ -51,6 +52,18 @@ object MongoClientProvider {
                 inviteMessages.insertOne(entry)
             }
         }
+    }
+
+    suspend fun migratePrivacyAcknowledgment(policyVersion: String, acknowledgmentVersion: String) {
+        val now = System.currentTimeMillis()
+        users.updateMany(
+            Filters.or(Filters.exists("privacyPolicyAcknowledgmentVersion", false), Filters.eq("privacyPolicyAcknowledgmentVersion", null)),
+            Updates.combine(
+                Updates.set("privacyPolicyVersion", policyVersion),
+                Updates.set("privacyPolicyAcknowledgmentVersion", acknowledgmentVersion),
+                Updates.set("privacyPolicyAcceptedAt", now)
+            )
+        )
     }
 
     suspend fun initialize() {

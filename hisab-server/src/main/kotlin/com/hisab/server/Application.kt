@@ -2,6 +2,7 @@ package com.hisab.server
 
 import com.hisab.server.database.MongoClientProvider
 import com.hisab.server.features.accounts.EmailUtil
+import com.hisab.server.features.accounts.currentPrivacyPolicy
 import com.hisab.server.plugins.*
 import io.ktor.server.application.*
 import io.ktor.server.netty.*
@@ -19,7 +20,7 @@ fun Application.module() {
         uploadDirectory.canWrite()) { "UPLOAD_DIR must be a writable directory" }
 
     try {
-        runBlocking { withTimeout(20_000) { MongoClientProvider.initialize(); MongoClientProvider.seedInviteMessages() } }
+        runBlocking { withTimeout(20_000) { MongoClientProvider.initialize(); MongoClientProvider.seedInviteMessages(); MongoClientProvider.migratePrivacyAcknowledgment(currentPrivacyPolicy.version, currentPrivacyPolicy.acknowledgmentVersion) } }
     } catch (error: Exception) {
         runCatching { MongoClientProvider.close() }
         log.error("MongoDB initialization failed (${error.javaClass.simpleName})")

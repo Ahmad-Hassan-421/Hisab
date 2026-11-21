@@ -56,8 +56,7 @@ android {
             buildConfigField("boolean", "UPDATE_QA", qaPackage.toString())
             manifestPlaceholders["allowCleartext"] = (URI(origin).scheme == "http").toString()
             applicationIdSuffix = if (qaPackage) ".qa" else ".debug"
-            resValue("string", "app_name_nonproduction", if (qaPackage) "Hisab QA" else "Hisab Debug")
-            manifestPlaceholders["launcherLabel"] = "@string/app_name_nonproduction"
+            manifestPlaceholders["launcherLabel"] = "@string/app_name"
             if (qaPackage) {
                 require(URI(origin).host in setOf("127.0.0.1", "localhost", "10.0.2.2")) {
                     "HISAB_QA requires a loopback debug API URL"

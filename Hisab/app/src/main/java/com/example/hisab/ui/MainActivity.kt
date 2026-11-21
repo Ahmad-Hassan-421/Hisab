@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
         val splashIsDark = when (savedTheme) {
             "dark"  -> true
             "light" -> false
-            else    -> systemIsDark
+            else    -> false
         }
         setTheme(if (splashIsDark) R.style.Theme_Hisab_Splash_Dark else R.style.Theme_Hisab_Splash_Light)
 
@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
         val initialRoute = "splash"
 
         setContent {
-            val themeMode by themePreferencesManager.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+            val themeMode by themePreferencesManager.themeMode.collectAsState(initial = ThemeMode.LIGHT)
             val systemInDarkTheme = isSystemInDarkTheme()
             
             val isDarkTheme = when (themeMode) {

@@ -36,7 +36,7 @@ class ThemePreferencesManager @Inject constructor(
                 "light"  -> ThemeMode.LIGHT
                 "dark"   -> ThemeMode.DARK
                 "system" -> ThemeMode.SYSTEM
-                else     -> ThemeMode.SYSTEM
+                else     -> ThemeMode.LIGHT
             }
         }
 
