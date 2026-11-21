@@ -32,14 +32,14 @@ fun SplashScreen(onFinished: () -> Unit) {
     val alpha = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        scale.animateTo(1f, animationSpec = tween(700, easing = FastOutSlowInEasing))
+        scale.animateTo(1f, animationSpec = tween(400, easing = FastOutSlowInEasing))
     }
     LaunchedEffect(Unit) {
-        rotation.animateTo(0f, animationSpec = tween(700, easing = FastOutSlowInEasing))
+        rotation.animateTo(0f, animationSpec = tween(400, easing = FastOutSlowInEasing))
     }
     LaunchedEffect(Unit) {
-        alpha.animateTo(1f, animationSpec = tween(900))
-        delay(300)
+        alpha.animateTo(1f, animationSpec = tween(500))
+        delay(200)
         onFinished()
     }
 

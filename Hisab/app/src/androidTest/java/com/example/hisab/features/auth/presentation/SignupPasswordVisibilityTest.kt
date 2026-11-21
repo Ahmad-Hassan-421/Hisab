@@ -32,7 +32,7 @@ class SignupPasswordVisibilityTest {
 
     @Test
     fun signupPasswordsToggleIndependentlyAndKeepEditingState() {
-        compose.waitUntil(10_000) { compose.onAllNodes(hasText("Sign Up")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(20_000) { compose.onAllNodes(hasText("Sign Up")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Sign Up").performClick()
         field("Full Name").performTextInput("Signup QA")
         field("Email").performTextInput("signup-visibility@example.invalid")

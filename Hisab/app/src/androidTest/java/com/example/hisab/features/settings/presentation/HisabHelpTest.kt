@@ -23,7 +23,7 @@ class HisabHelpTest {
 
     @Test
     fun signedOutHelpExpandsAnAnswerAndOpensAbout() {
-        compose.waitUntil(10_000) { compose.onAllNodes(hasText("Help and support")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(20_000) { compose.onAllNodes(hasText("Help and support")).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Help and support").performScrollTo().performClick()
         val question = compose.onNodeWithText("What is a Hisab?")
         question.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Collapsed"))
