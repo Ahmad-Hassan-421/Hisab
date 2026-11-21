@@ -311,7 +311,7 @@ fun HisabNavHost(startDest: String, hasSession: Boolean = false) {
     }
 }
 
-private val privacyAccessibleRoutes = setOf("login", "session_entry", "profile", "settings", "privacy_policy", "privacy_data",
+private val privacyAccessibleRoutes = setOf("splash", "login", "session_entry", "profile", "settings", "privacy_policy", "privacy_data",
     "password_recovery", "verify_recovery_email", "about", "faq")
 
 @Composable
