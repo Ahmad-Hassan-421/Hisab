@@ -12,6 +12,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performSemanticsAction
@@ -68,14 +70,12 @@ class SignupPasswordVisibilityTest {
             }
         }
 
-        compose.waitUntil(10_000) { compose.onAllNodes(hasText("Sign Up")).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Sign Up").performClick()
-        compose.waitForIdle()
-        compose.waitUntil(10_000) {
-            compose.onAllNodes(hasTestTag("signup_full_name"), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
-        }
+        try {
+            compose.waitForIdle()
+            compose.onNodeWithText("Sign Up").performClick()
+            compose.waitForIdle()
 
-        fun field(label: String) = when (label) {
+            fun field(label: String) = when (label) {
             "Full Name" -> compose.onNodeWithTag("signup_full_name", useUnmergedTree = true)
             "Email" -> compose.onNodeWithTag("signup_email", useUnmergedTree = true)
             "Password" -> compose.onNodeWithTag("signup_password", useUnmergedTree = true)
@@ -118,5 +118,12 @@ class SignupPasswordVisibilityTest {
         confirmation.performTextReplacement("Signup-QA42@")
         confirmation.performImeAction()
         compose.onNodeWithText("Review and acknowledge the Privacy Policy to create an account.").assertExists()
+        } catch (e: Throwable) {
+            throw AssertionError(
+                (e.message ?: "SignupPasswordVisibilityTest failed") + "\n" +
+                    compose.onRoot(useUnmergedTree = true).printToString(),
+                e
+            )
+        }
     }
 }
