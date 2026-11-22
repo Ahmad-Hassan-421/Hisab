@@ -3,6 +3,7 @@ package com.hisab.server.features.health
 import com.mongodb.MongoException
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.head
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -73,5 +74,50 @@ class HealthRoutesTest {
         available = false
         assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/healthz").status)
         assertEquals(HttpStatusCode.ServiceUnavailable, client.get("/ready").status)
+    }
+
+    @Test
+    fun uptimeRobotHeadMatchesGetHeadersAndChecksTheDatabaseForEveryEndpoint() = testApplication {
+        environment { config = MapApplicationConfig() }
+        var probes = 0
+        application { routing { healthRoutes { probes++ } } }
+
+        for (path in listOf("/health", "/healthz", "/ready")) {
+            val get = client.get(path)
+            val head = client.head(path) {
+                header(HttpHeaders.UserAgent, "Mozilla/5.0+(compatible; UptimeRobot/2.0; http://www.uptimerobot.com/)")
+                header(HttpHeaders.Authorization, "Bearer expired-token")
+            }
+            assertEquals(HttpStatusCode.OK, head.status)
+            assertEquals("", head.bodyAsText())
+            assertEquals(get.headers[HttpHeaders.ContentType], head.headers[HttpHeaders.ContentType])
+            assertEquals(get.headers[HttpHeaders.ContentLength], head.headers[HttpHeaders.ContentLength])
+            assertEquals("no-store", head.headers[HttpHeaders.CacheControl])
+        }
+        assertEquals(6, probes)
+    }
+
+    @Test
+    fun headReportsDatabaseFailureWithoutReturningABody() = testApplication {
+        environment { config = MapApplicationConfig() }
+        application { routing { healthRoutes { throw MongoException("Private database details") } } }
+        for (path in listOf("/health", "/healthz", "/ready")) {
+            val get = client.get(path)
+            val head = client.head(path)
+            assertEquals(HttpStatusCode.ServiceUnavailable, head.status)
+            assertEquals("", head.bodyAsText())
+            assertEquals(get.headers[HttpHeaders.ContentType], head.headers[HttpHeaders.ContentType])
+            assertEquals(get.headers[HttpHeaders.ContentLength], head.headers[HttpHeaders.ContentLength])
+            assertEquals("no-store", head.headers[HttpHeaders.CacheControl])
+        }
+    }
+
+    @Test
+    fun headDatabaseTimeoutReturns503() = testApplication {
+        environment { config = MapApplicationConfig() }
+        application { routing { healthRoutes { delay(10_000) } } }
+        val response = client.head("/health")
+        assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+        assertEquals("", response.bodyAsText())
     }
 }
