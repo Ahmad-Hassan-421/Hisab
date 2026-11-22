@@ -92,7 +92,7 @@ jobs:
           disable-animations: true
           working-directory: Hisab
           script: |
-            bash ./gradlew --no-daemon connectedDebugAndroidTest -PHISAB_QA=true -PHISAB_DEBUG_API_URL=http://127.0.0.1:18093/
+            bash ./gradlew --no-daemon connectedDebugAndroidTest -PHISAB_QA=true -PHISAB_DEBUG_API_URL=http://127.0.0.1:18093/ -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
             mkdir -p build
             adb pull /sdcard/Android/data/com.example.hisab.qa/files/splash-previews build/splash-previews
       - name: Upload instrumentation reports
