@@ -10,7 +10,7 @@ The Blueprint defines one Docker web service for Ktor. Render's native runtimes 
 | Dockerfile | `./hisab-server/Dockerfile` |
 | Start | Container entrypoint runs `/opt/hisab/bin/hisab-server` |
 | Listener | `0.0.0.0:10000` in the Blueprint |
-| Health check | `GET /healthz` |
+| Health check | `GET /health` returning HTTP 200 and `{"status":"ok"}` |
 | Database | Externally managed MongoDB replica set or sharded cluster |
 | Uploads | 1 GB Render disk at `/var/data`, upload directory `/var/data/uploads` |
 | Deployment trigger | Manual service deploys after initial creation |
@@ -26,7 +26,7 @@ The Blueprint defines one Docker web service for Ktor. Render's native runtimes 
 1. In Render select **New** and **Blueprint**, connect the chosen GitHub repository, and select the branch that contains `render.yaml`.
 2. Review the web service and disk before approving resource creation. Set the Blueprint's `region` before first creation if you need a region other than Render's default. Choose a region near the MongoDB cluster and intended users. Add Render's outbound ranges to the MongoDB network allowlist. Use a database principal scoped to the Hisab database with permission to create the documented indexes. Supply `MONGO_URI` in Render's secret field. [Blueprint regions](https://render.com/docs/blueprint-spec), [Outbound addresses](https://render.com/docs/outbound-ip-addresses)
 3. Set `MONGO_DATABASE` to the intended database. The Blueprint generates `JWT_SECRET` on creation. Keep it stable across normal deploys. Add the Brevo settings only if you want welcome email delivery. [Environment variables](ENVIRONMENT_VARIABLES.md)
-4. Deploy the service, inspect startup logs, and confirm that the health check returns `ok` over HTTPS. Verify the packaged image at `/static/default_profile.png` and confirm that a protected route such as `/groups?userId=test` returns HTTP 401 without a token. Use a controlled account for registration, login, ledger and upload tests.
+4. Deploy the service, inspect startup logs, and confirm that `/health` returns HTTP 200 and `{"status":"ok"}` over HTTPS. Verify the packaged image at `/static/default_profile.png` and confirm that a protected route such as `/groups?userId=test` returns HTTP 401 without a token. Use a controlled account for registration, login, ledger and upload tests.
 5. Record the service's HTTPS origin. For a staging APK set `HISAB_DEBUG_API_URL` to the staging origin. For a production APK set `HISAB_RELEASE_API_URL` to the approved origin and build the signed release with the original signing key when updating an existing installation.
 6. Confirm both the health endpoint and the phone's API and upload workflows after deployment. Monitor restarts, Ktor HTTP errors, database connectivity, heap use and disk consumption. Use the [checklist](PRODUCTION_CHECKLIST.md) and [rollback steps](MIGRATION_PLAN.md).
 
@@ -37,3 +37,11 @@ Render supplies `RENDER_EXTERNAL_URL`. Hisab uses its HTTPS origin when returnin
 The production-equivalent runtime is the Gradle `installDist` package. For a container rehearsal on a machine with Docker, build `docker build -t hisab-api ./hisab-server`, supply a disposable MongoDB endpoint reachable from the container, and mount a local volume at `/var/data`. Exercise restart and file persistence before using live uploads.
 
 The Blueprint was checked against [Render's published schema](https://render.com/schema/render.yaml.json). The local environment has no Docker daemon or WSL distribution. Container execution and deployment remain verification steps for the chosen Render workspace.
+
+## Existing Hisab service
+
+The service `Hisab` (`srv-dbqdg98n74is73bsa88g`) is configured independently of this paid Blueprint. It uses the Free plan, repository branch `hisab-update`, root directory `hisab-server/`, Docker context `.`, and Dockerfile `./Dockerfile`. It automatically deploys pushed commits. Do not apply the paid Blueprint to repair it unless a paid service and persistent disk are intended.
+
+The November 22 deployment failures were runtime startup timeouts, after successful image builds. The old 20-second deadline covered connection discovery, indexes, and a separate database request for every invitation template. Startup now allows a bounded 120 seconds by default (`MONGO_STARTUP_TIMEOUT_MS` can override it) and seeds missing templates in one bulk upsert without replacing administrator edits. The HTTP health probe retains its independent two-second timeout.
+
+Use the [monitor setup](implementation-04/12-health-monitoring.md) for UptimeRobot and Render readiness settings. Uploads on the current Free service are ephemeral; a restart or deploy discards its old filesystem. Durable profile photos require a separate storage decision.

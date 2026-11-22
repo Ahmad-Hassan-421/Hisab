@@ -5,6 +5,10 @@ import com.mongodb.MongoException
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Indexes
 import com.mongodb.client.model.Filters
+import com.mongodb.client.model.BulkWriteOptions
+import com.mongodb.client.model.UpdateOneModel
+import com.mongodb.client.model.UpdateOptions
+import com.mongodb.client.model.Updates
 import com.mongodb.reactivestreams.client.ClientSession
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -15,7 +19,6 @@ import kotlinx.serialization.json.Json
 import org.bson.Document
 import org.litote.kmongo.coroutine.CoroutineCollection
 import org.litote.kmongo.coroutine.coroutine
-import org.litote.kmongo.eq
 import org.litote.kmongo.reactivestreams.KMongo
 import java.util.concurrent.TimeUnit
 
@@ -45,12 +48,18 @@ object MongoClientProvider {
             ?: error("invite-messages.json resource is missing")
         val raw = stream.bufferedReader().readText()
         val entries = Json.decodeFromString<List<InviteMessageDocument>>(raw)
-        entries.forEach { entry ->
-            val existing = inviteMessages.findOne(InviteMessageDocument::key eq entry.key)
-            if (existing == null) {
-                inviteMessages.insertOne(entry)
-            }
+        // One round trip instead of a lookup (and sometimes an insert) per template.
+        // Existing templates may have been edited or deactivated by an administrator.
+        val inserts = entries.map { entry ->
+            UpdateOneModel<InviteMessageDocument>(
+                Filters.eq("key", entry.key),
+                Updates.combine(Updates.setOnInsert("_id", entry.id),
+                    Updates.setOnInsert("key", entry.key), Updates.setOnInsert("text", entry.text),
+                    Updates.setOnInsert("active", entry.active), Updates.setOnInsert("language", entry.language)),
+                UpdateOptions().upsert(true)
+            )
         }
+        if (inserts.isNotEmpty()) inviteMessages.bulkWrite(inserts, BulkWriteOptions().ordered(false))
     }
 
     suspend fun initialize() {

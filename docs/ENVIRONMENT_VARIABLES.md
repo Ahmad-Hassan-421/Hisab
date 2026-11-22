@@ -6,6 +6,7 @@
 |---|---|
 | `MONGO_URI` | Required. Supply a MongoDB URI for a replica set or sharded cluster. Use TLS for hosted databases. |
 | `MONGO_DATABASE` | Defaults to `hisab_db`. Choose a separate value for disposable tests and staging. |
+| `MONGO_STARTUP_TIMEOUT_MS` | Optional total deadline for MongoDB connection, indexes and invitation seeding. Defaults to `120000`; accepts `5000` through `300000`. The public health probe retains its separate two-second deadline. |
 | `JWT_SECRET` | Required and at least 32 UTF-8 bytes. Store a randomly generated value securely. Rotating it invalidates existing sessions. |
 | `HOST` | Defaults to `0.0.0.0`. Use loopback for local ADB reverse, and leave the public Render listener on all container interfaces. |
 | `PORT` | Defaults to 8081 locally. The Blueprint supplies 10000. |

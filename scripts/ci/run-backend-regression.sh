@@ -38,12 +38,15 @@ python3 scripts/qa/check_api.py --extended --port 18081 | tee "$report_dir/api-r
 
 # Existing accounts must not acquire a privacy acknowledgment during a server restart.
 docker exec "$container" mongosh hisab_ci --quiet --eval 'db.userDocument.updateMany({}, {$unset:{privacyPolicyVersion:"",privacyPolicyAcknowledgmentVersion:"",privacyPolicyAcceptedAt:"",privacyPolicyHistory:""}})'
+# Startup must restore missing templates while preserving administrator edits.
+docker exec "$container" mongosh hisab_ci --quiet --eval 'if (db.invite_message_document.countDocuments({}) !== 100) quit(1); db.invite_message_document.updateOne({key:"invite-message-001"}, {$set:{text:"Retain this edited template",active:false}}); db.invite_message_document.deleteOne({key:"invite-message-002"})'
 kill "$server_pid"
 wait "$server_pid" || true
 hisab-server/build/install/hisab-server/bin/hisab-server >>"$report_dir/hisab-server.log" 2>&1 &
 server_pid=$!
 wait_for curl --fail --silent --max-time 2 http://127.0.0.1:18081/health
 docker exec "$container" mongosh hisab_ci --quiet --eval 'quit(db.userDocument.countDocuments({privacyPolicyAcceptedAt:{$exists:true}}) === 0 ? 0 : 1)'
+docker exec "$container" mongosh hisab_ci --quiet --eval 'quit(db.invite_message_document.countDocuments({}) === 100 && db.invite_message_document.countDocuments({key:"invite-message-001",text:"Retain this edited template",active:false}) === 1 ? 0 : 1)'
 
 # An established server must report unavailable after its database stops.
 docker stop "$container" >/dev/null
