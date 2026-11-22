@@ -2,9 +2,20 @@ package com.hisab.server.features.accounts
 
 import com.hisab.server.models.UserDocument
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class ProfilePrivacyTest {
+    @Test
+    fun anExistingAccountWithoutAcknowledgmentStillNeedsReview() {
+        val user = UserDocument(
+            id = "legacy", name = "Legacy", email = "legacy@example.invalid", passwordHash = "unused",
+            uniqueId = "legacy-42", profilePicUrl = ""
+        )
+        assertFalse(user.hasAcknowledgedPrivacy())
+        assertEquals(null, user.privacyPolicyAcceptedAt)
+    }
+
     @Test
     fun anotherMemberGetsPublicIdentityWithoutPrivateProfileFields() {
         val owner = UserDocument(

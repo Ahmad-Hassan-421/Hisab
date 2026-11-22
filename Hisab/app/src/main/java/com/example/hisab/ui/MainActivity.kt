@@ -21,6 +21,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,7 +29,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -58,8 +58,6 @@ import com.example.hisab.ui.components.HisabFeedbackHost
 import com.example.hisab.ui.components.LocalHisabFeedback
 import com.example.hisab.ui.components.rememberHisabFeedback
 import com.example.hisab.features.auth.presentation.SessionViewModel
-import com.example.hisab.util.SPLASH_PREFS_NAME
-import com.example.hisab.util.SPLASH_THEME_KEY
 import com.example.hisab.util.ThemeMode
 import com.example.hisab.util.ThemePreferencesManager
 import com.example.hisab.util.TokenManager
@@ -81,9 +79,8 @@ class MainActivity : ComponentActivity() {
     lateinit var tokenManager: TokenManager
     
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(R.style.Theme_Hisab)
-
         super.onCreate(savedInstanceState)
+        setTheme(R.style.Theme_Hisab)
 
         setContent {
             val themeMode by themePreferencesManager.themeMode.collectAsState(initial = ThemeMode.LIGHT)
@@ -100,7 +97,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    var showSplash by remember { mutableStateOf(!testSkipSplash) }
+                    var showSplash by rememberSaveable { mutableStateOf(!testSkipSplash) }
                     val splashTarget = if (tokenManager.getUserId() != null) "session_entry" else "login"
                     if (showSplash) {
                         SplashScreen(onFinished = { showSplash = false })

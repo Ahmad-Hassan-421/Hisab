@@ -49,7 +49,7 @@ fun SplashScreen(onFinished: () -> Unit) {
         onFinished()
     }
 
-    val backgroundBrush = if (MaterialTheme.colorScheme.background == Color(0xFF121212)) {
+    val backgroundBrush = if (com.example.hisab.ui.theme.LocalThemeIsDark.current) {
         Brush.verticalGradient(listOf(Color(0xFF020617), Color(0xFF0F172A), Color(0xFF020617)))
     } else {
         Brush.verticalGradient(listOf(Color(0xFFEAF2FF), Color(0xFFFFFFFF), Color(0xFFDCEBFF)))
@@ -67,7 +67,10 @@ fun SplashScreen(onFinished: () -> Unit) {
                 modifier = Modifier
                     .size(168.dp)
                     .scale(scale.value)
-                    .graphicsLayer { rotationY = rotation.value },
+                    .graphicsLayer {
+                        rotationY = rotation.value
+                        this.alpha = alpha.value
+                    },
                 size = 168.dp
             )
             Spacer(modifier = Modifier.height(24.dp))

@@ -12,46 +12,17 @@ import com.hisab.server.features.invitations.requestRoutes
 import com.hisab.server.features.media.storageRoutes
 import com.hisab.server.features.realtime.webSocketRoutes
 import com.hisab.server.features.releases.releaseRoutes
-import com.mongodb.MongoException
+import com.hisab.server.features.health.healthRoutes
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.http.content.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 
 fun Application.configureRouting(uploadDirectory: File) {
     routing {
-        get("/health") {
-            val ready = try {
-                withTimeoutOrNull(2_000) { MongoClientProvider.ping(); true } == true
-            } catch (_: MongoException) {
-                false
-            }
-            if (ready) {
-                call.respondText("{\"status\":\"ok\"}", ContentType.Application.Json, HttpStatusCode.OK)
-            } else {
-                call.respondText("{\"status\":\"unavailable\"}", ContentType.Application.Json, HttpStatusCode.ServiceUnavailable)
-            }
-        }
-        get("/healthz") {
-            val ready = try {
-                withTimeoutOrNull(2_000) { MongoClientProvider.ping(); true } == true
-            } catch (_: MongoException) {
-                false
-            }
-            if (ready) call.respondText("ok") else call.respondText("unavailable", status = HttpStatusCode.ServiceUnavailable)
-        }
-        get("/ready") {
-            val ready = try {
-                withTimeoutOrNull(2_000) { MongoClientProvider.ping(); true } == true
-            } catch (_: MongoException) {
-                false
-            }
-            if (ready) call.respondText("{\"status\":\"ready\"}", ContentType.Application.Json, HttpStatusCode.OK)
-            else call.respondText("{\"status\":\"not_ready\"}", ContentType.Application.Json, HttpStatusCode.ServiceUnavailable)
-        }
+        healthRoutes()
         authRoutes()
         passwordRecoveryRoutes()
         adminRoutes()

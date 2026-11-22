@@ -5,17 +5,7 @@
         <item name="android:navigationBarColor">@color/hisab_background</item>
     </style>
 
-    <style name="Theme.Hisab.Splash.Light" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/splash_background_light</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo_light</item>
-        <item name="windowSplashScreenAnimationDuration">500</item>
-        <item name="postSplashScreenTheme">@style/Theme.Hisab</item>
-    </style>
-
-    <style name="Theme.Hisab.Splash.Dark" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/splash_background_dark</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo_dark</item>
-        <item name="windowSplashScreenAnimationDuration">500</item>
-        <item name="postSplashScreenTheme">@style/Theme.Hisab</item>
+    <style name="Theme.Hisab.Starting" parent="Theme.Hisab">
+        <item name="android:windowBackground">@color/starting_background</item>
     </style>
 </resources>

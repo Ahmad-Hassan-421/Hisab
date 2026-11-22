@@ -31,6 +31,7 @@ jobs:
         run: |
           python3 scripts/ci/check_patch_format.py --base "$BASE_SHA"
           bash -n scripts/ci/run-backend-regression.sh
+          sh -n hisab-server/gradle-build.sh
           python3 scripts/check_secrets.py
       - name: Compile, test, and resolve the deployment dependencies
         working-directory: hisab-server

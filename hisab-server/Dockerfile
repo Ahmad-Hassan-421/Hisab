@@ -3,7 +3,8 @@ WORKDIR /build
 COPY gradlew build.gradle.kts settings.gradle.kts ./
 COPY gradle ./gradle
 COPY src/main ./src/main
-RUN sh ./gradlew --no-daemon installDist
+COPY gradle-build.sh ./
+RUN --mount=type=cache,target=/root/.gradle sh ./gradle-build.sh
 
 FROM eclipse-temurin:17-jre-jammy
 RUN apt-get update \

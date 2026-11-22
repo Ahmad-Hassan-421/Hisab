@@ -35,3 +35,18 @@ hisab-server/build/install/hisab-server/bin/hisab-server >"$report_dir/hisab-ser
 server_pid=$!
 wait_for curl --fail --silent --max-time 2 http://127.0.0.1:18081/healthz
 python3 scripts/qa/check_api.py --extended --port 18081 | tee "$report_dir/api-regression.txt"
+
+# Existing accounts must not acquire a privacy acknowledgment during a server restart.
+docker exec "$container" mongosh hisab_ci --quiet --eval 'db.userDocument.updateMany({}, {$unset:{privacyPolicyVersion:"",privacyPolicyAcknowledgmentVersion:"",privacyPolicyAcceptedAt:"",privacyPolicyHistory:""}})'
+kill "$server_pid"
+wait "$server_pid" || true
+hisab-server/build/install/hisab-server/bin/hisab-server >>"$report_dir/hisab-server.log" 2>&1 &
+server_pid=$!
+wait_for curl --fail --silent --max-time 2 http://127.0.0.1:18081/health
+docker exec "$container" mongosh hisab_ci --quiet --eval 'quit(db.userDocument.countDocuments({privacyPolicyAcceptedAt:{$exists:true}}) === 0 ? 0 : 1)'
+
+# An established server must report unavailable after its database stops.
+docker stop "$container" >/dev/null
+status=$(curl --silent --show-error --max-time 5 --output "$report_dir/health-unavailable.json" --write-out '%{http_code}' http://127.0.0.1:18081/health)
+test "$status" = 503
+python3 -c 'import json,sys; assert json.load(open(sys.argv[1])) == {"status":"unavailable"}' "$report_dir/health-unavailable.json"
