@@ -1,9 +1,12 @@
 package com.example.hisab.features.auth.presentation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -21,12 +25,9 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
@@ -46,6 +47,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -62,6 +66,18 @@ import com.example.hisab.ui.components.DynamicLogo
 import com.example.hisab.ui.components.ActionLabel
 import com.example.hisab.util.AppFailure
 
+object AuthTestTags {
+    const val SIGNUP_FULL_NAME = "signup_full_name"
+    const val SIGNUP_EMAIL = "signup_email"
+    const val SIGNUP_PASSWORD = "signup_password"
+    const val SIGNUP_CONFIRM_PASSWORD = "signup_confirm_password"
+    const val LOGIN_EMAIL = "login_email"
+    const val LOGIN_PASSWORD = "login_password"
+    const val TOGGLE_PASSWORD_VISIBILITY = "toggle_password_visibility"
+    const val TOGGLE_CONFIRM_PASSWORD_VISIBILITY = "toggle_confirm_password_visibility"
+    // Login and Signup share AuthScreen; tags are mode-specific so tests must assert the mode first.
+}
+
 @Composable
 fun LoginScreen(
     onNavigateToDashboard: () -> Unit,
@@ -72,6 +88,14 @@ fun LoginScreen(
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val feedback = com.example.hisab.ui.components.LocalHisabFeedback.current
+    androidx.compose.runtime.LaunchedEffect(uiState.isSignedIn) {
+        if (uiState.isSignedIn) {
+            uiState.successMessage?.let { feedback?.post?.invoke(it, com.example.hisab.ui.components.FeedbackKind.SUCCESS) }
+            viewModel.clearSuccess()
+            onNavigateToDashboard()
+        }
+    }
     AuthScreen(
         uiState = uiState,
         sessionExpired = sessionExpired,
@@ -105,35 +129,46 @@ fun AuthScreen(
     onLogin: () -> Unit = {},
     onRegister: () -> Unit = {}
 ) {
-    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val focusManager = LocalFocusManager.current
     val confirmationFocus = remember { FocusRequester() }
     var passwordVisible by remember(uiState.isLoginMode) { mutableStateOf(false) }
     var confirmationVisible by remember(uiState.isLoginMode) { mutableStateOf(false) }
 
-    androidx.compose.foundation.layout.Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        DynamicLogo(size = 120.dp, modifier = Modifier.padding(bottom = 8.dp))
-        Text(text = "Hisab", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text(text = "Shared ledger for clear, fair balances", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f), textAlign = TextAlign.Center)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = "Created by Hantalyze", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f))
-        Spacer(modifier = Modifier.height(32.dp))
+    val backgroundBrush = if (MaterialTheme.colorScheme.background == Color(0xFF121212)) {
+        Brush.verticalGradient(listOf(Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF0F172A)))
+    } else {
+        Brush.verticalGradient(listOf(Color(0xFFEAF2FF), Color(0xFFFFFFFF), Color(0xFFE8F0FE)))
+    }
 
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundBrush)
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
         ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(24.dp, RoundedCornerShape(28.dp), clip = false),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 12.dp)
         ) {
-            Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = if (uiState.isLoginMode) "Welcome back" else "Create account", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                Spacer(modifier = Modifier.height(20.dp))
+            Column(
+                modifier = Modifier.padding(28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                DynamicLogo(size = 96.dp, modifier = Modifier.padding(bottom = 4.dp))
+                Text(text = "Hisab", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Text(text = "Shared ledger for clear, fair balances", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f), textAlign = TextAlign.Center)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(text = "Created by Hantalyze", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f))
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(text = if (uiState.isLoginMode) "Welcome back" else "Create account", fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                Spacer(modifier = Modifier.height(18.dp))
 
                 if (sessionExpired) {
                     Text(AppFailure.SESSION_EXPIRED.message, color = MaterialTheme.colorScheme.error)
@@ -146,7 +181,7 @@ fun AuthScreen(
                         onValueChange = onNameChange,
                         label = { Text("Full Name") },
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Name") },
-                        modifier = Modifier.fillMaxWidth().testTag("signup_full_name"),
+                        modifier = Modifier.fillMaxWidth().testTag(AuthTestTags.SIGNUP_FULL_NAME),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                     )
@@ -158,7 +193,7 @@ fun AuthScreen(
                     onValueChange = onEmailChange,
                     label = { Text("Email") },
                     leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email") },
-                    modifier = Modifier.fillMaxWidth().testTag("signup_email"),
+                    modifier = Modifier.fillMaxWidth().testTag(if (uiState.isLoginMode) AuthTestTags.LOGIN_EMAIL else AuthTestTags.SIGNUP_EMAIL),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next)
                 )
@@ -171,7 +206,7 @@ fun AuthScreen(
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Password") },
                     trailingIcon = { PasswordVisibilityToggle(passwordVisible, "password") { passwordVisible = !passwordVisible } },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth().testTag("signup_password"),
+                    modifier = Modifier.fillMaxWidth().testTag(if (uiState.isLoginMode) AuthTestTags.LOGIN_PASSWORD else AuthTestTags.SIGNUP_PASSWORD),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = if (uiState.isLoginMode) ImeAction.Done else ImeAction.Next),
                     keyboardActions = if (uiState.isLoginMode) KeyboardActions(onDone = { focusManager.clearFocus(); onLogin() }) else KeyboardActions(onNext = { confirmationFocus.requestFocus() })
@@ -192,7 +227,7 @@ fun AuthScreen(
                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Confirm Password") },
                         trailingIcon = { PasswordVisibilityToggle(confirmationVisible, "confirm password") { confirmationVisible = !confirmationVisible } },
                         visualTransformation = if (confirmationVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth().focusRequester(confirmationFocus).testTag("signup_confirm_password"),
+                        modifier = Modifier.fillMaxWidth().focusRequester(confirmationFocus).testTag(AuthTestTags.SIGNUP_CONFIRM_PASSWORD),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); onRegister() })
@@ -226,7 +261,7 @@ fun AuthScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = if (uiState.isLoginMode) "Don't have an account?" else "Already have an account?", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 14.sp)
+                    Text(text = if (uiState.isLoginMode) "Don't have an account?" else "Already have an account?", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f), fontSize = 14.sp)
                     Spacer(modifier = Modifier.width(4.dp))
                     TextButton(onClick = onToggleMode) {
                         Text(text = if (uiState.isLoginMode) "Sign Up" else "Log In", fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -241,7 +276,7 @@ fun AuthScreen(
 
 @Composable
 private fun PasswordVisibilityToggle(visible: Boolean, field: String, onToggle: () -> Unit) {
-    IconButton(onClick = onToggle, modifier = Modifier.testTag("toggle_${field.replace(" ", "_")}_visibility")) {
+    IconButton(onClick = onToggle, modifier = Modifier.testTag(if (field == "password") AuthTestTags.TOGGLE_PASSWORD_VISIBILITY else AuthTestTags.TOGGLE_CONFIRM_PASSWORD_VISIBILITY)) {
         Icon(imageVector = if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = if (visible) "Hide $field" else "Show $field")
     }
 }
