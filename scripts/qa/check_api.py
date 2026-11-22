@@ -77,8 +77,10 @@ def main():
         return (message + b"." + encode(hmac.digest(secret.encode(), message, hashlib.sha256))).decode()
 
     if args.extended:
-        ready = expect("database-backed readiness", 200, "GET", "/healthz")
-        check("readiness body is minimal", ready == b"ok")
+        ready = expect("database-backed health", 200, "GET", "/health")
+        check("health body is minimal", ready == {"status": "ok"})
+        legacy_ready = expect("legacy database-backed readiness", 200, "GET", "/healthz")
+        check("legacy readiness body is minimal", legacy_ready == b"ok")
         expect("invalid JSON", 400, "POST", "/auth/register", body=b"{")
         expect("unknown routes return a correlated error", 404, "GET", "/nonexistent-qa-route")
 

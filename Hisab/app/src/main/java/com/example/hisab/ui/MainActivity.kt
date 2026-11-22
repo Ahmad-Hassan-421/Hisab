@@ -81,17 +81,9 @@ class MainActivity : ComponentActivity() {
     lateinit var tokenManager: TokenManager
     
     override fun onCreate(savedInstanceState: Bundle?) {
-        val savedTheme = getSharedPreferences(SPLASH_PREFS_NAME, android.content.Context.MODE_PRIVATE)
-            .getString(SPLASH_THEME_KEY, null)
-        val splashIsDark = when (savedTheme) {
-            "dark"  -> true
-            "light" -> false
-            else    -> false
-        }
-        setTheme(if (splashIsDark) R.style.Theme_Hisab_Splash_Dark else R.style.Theme_Hisab_Splash_Light)
+        setTheme(R.style.Theme_Hisab)
 
         super.onCreate(savedInstanceState)
-        installSplashScreen()
 
         setContent {
             val themeMode by themePreferencesManager.themeMode.collectAsState(initial = ThemeMode.LIGHT)

@@ -24,7 +24,16 @@ import java.io.File
 fun Application.configureRouting(uploadDirectory: File) {
     routing {
         get("/health") {
-            call.respondText("{\"status\":\"ok\"}", ContentType.Application.Json, HttpStatusCode.OK)
+            val ready = try {
+                withTimeoutOrNull(2_000) { MongoClientProvider.ping(); true } == true
+            } catch (_: MongoException) {
+                false
+            }
+            if (ready) {
+                call.respondText("{\"status\":\"ok\"}", ContentType.Application.Json, HttpStatusCode.OK)
+            } else {
+                call.respondText("{\"status\":\"unavailable\"}", ContentType.Application.Json, HttpStatusCode.ServiceUnavailable)
+            }
         }
         get("/healthz") {
             val ready = try {
