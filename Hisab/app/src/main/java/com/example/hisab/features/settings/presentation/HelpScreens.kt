@@ -32,7 +32,7 @@ fun AboutHisabScreen(onBack: () -> Unit, onOpenFaq: () -> Unit, onPolicy: () -> 
                 Text("Hisab", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
                 Text("Created by Hantalyze", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
-                Text("Version ${BuildConfig.VERSION_NAME} · Build ${BuildConfig.VERSION_CODE}",
+                Text("Version ${BuildConfig.VERSION_NAME}",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -110,6 +110,8 @@ private val hisabQuestions = listOf(
     HelpQuestion("Can I edit a saved entry?", "You can review an entry in the member’s details. Editing saved entries is currently unavailable."),
     HelpQuestion("How do I reset my password?", "Choose Forgot password? on the login screen. If you verified your recovery email, follow the instructions in the message and enter the code in Hisab. To set up recovery, choose Verify recovery email from your Profile while signed in."),
     HelpQuestion("How do I change my picture?", "Open Profile, tap the edit icon on your picture, choose a photo, and crop it. Hisab saves your selection on this device. You can also reset the picture from Profile."),
+    HelpQuestion("How do I recover a deleted Hisab?", "Open Settings, then Privacy and data, and choose Retrieve a Copy of My Data. Unexpired recovery sources are available for two calendar months. A submitted request normally delivers a read-only copy within 3–5 minutes. Delivered copies remain until you delete them or your account."),
+    HelpQuestion("What happens when I delete my account?", "In Privacy and data, select your signed-in account and confirm with its password. Your private data and copies are permanently removed. Other members keep their shared financial records with your identity anonymized."),
     HelpQuestion("How does Hisab update?", "Open Settings and select Check for updates. When an update is available, download it and follow the Android installer prompts."),
     HelpQuestion("What happens when I go offline?", "Hisab may show records that were loaded earlier. An internet connection is required to create or change records and to refresh balances and invitations."),
     HelpQuestion("Who can see shared records?", "Members of a Hisab can see shared ledger entries inside that Hisab. Protect your login and only invite people you want in the group.")

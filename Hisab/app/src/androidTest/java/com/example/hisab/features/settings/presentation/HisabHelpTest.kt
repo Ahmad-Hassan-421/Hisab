@@ -42,7 +42,8 @@ class HisabHelpTest {
         question.performClick().assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Collapsed"))
         compose.onNodeWithText("About Hisab").performScrollTo().performClick()
         compose.onNodeWithText("Created by Hantalyze").assertIsDisplayed()
-        compose.onNodeWithText("Version ${BuildConfig.VERSION_NAME} · Build ${BuildConfig.VERSION_CODE}").assertIsDisplayed()
+        compose.onNodeWithText("Version ${BuildConfig.VERSION_NAME}").assertIsDisplayed()
+        compose.onNodeWithText("Build ${BuildConfig.VERSION_CODE}", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Open Hisab Issues on GitHub").performScrollTo().assertIsDisplayed()
     }
 }

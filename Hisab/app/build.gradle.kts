@@ -26,7 +26,7 @@ val releaseOrigin = providers.gradleProperty("HISAB_RELEASE_API_URL")
     .map { apiOrigin(it, "HISAB_RELEASE_API_URL", httpsOnly = true) }
 val qaPackage = providers.gradleProperty("HISAB_QA").map(String::toBooleanStrict).orElse(false).get()
 val qaVersion = providers.gradleProperty("HISAB_QA_VERSION_CODE").map(String::toInt).orNull
-val currentBuild = 3
+val currentBuild = 4
 require(qaVersion == null || (qaPackage && qaVersion > currentBuild)) { "A QA version override must be newer than the current build" }
 
 android {
@@ -39,7 +39,7 @@ android {
         minSdk = 24
         targetSdk = 34
         versionCode = currentBuild
-        versionName = "1.2.0"
+        versionName = "1.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["allowCleartext"] = "false"

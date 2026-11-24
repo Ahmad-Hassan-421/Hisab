@@ -13,8 +13,8 @@ Work proceeds on `codex/hisab-v1.2.1`. Do not publish the stable tag or apply pr
 | 2 | Private archives, expiry, durable recovery, recovered read-only views and permanent account deletion | Complete |
 | 3 | Shared feedback and confirmation components | Complete |
 | 4 | Reusable skeletons, loading, empty/error/retry behavior | Complete |
-| 5 | Startup/session/consent navigation coordination | In progress |
-| 6 | Settings redesign and visible version presentation | Pending |
+| 5 | Startup/session/consent navigation coordination | Complete |
+| 6 | Settings redesign and visible version presentation | In progress |
 | 7 | Home and Hisab detail presentation | Pending |
 | 8 | Shared/member pictures, durable storage and account-aware image caching | Pending |
 | 9 | Multi-device push registration, durable event delivery, preferences and deep links | Pending implementation; configuration located, delivery unverified |
@@ -88,3 +88,13 @@ Startup now creates session and privacy view models while the existing 3D animat
 Session restoration and privacy checks are bounded at 12 seconds; policy fetch has a five-second fallback. Offline continuation requires an acknowledgment cached for the same account and matching bundled revision, and is prohibited when a required review is pending. A stale policy document cannot satisfy a newly required revision. Incomplete/rejected saved sessions return to sign-in; late profile responses cannot overwrite a switched account. Required acknowledgment writes remain explicit and retryable, never automatic.
 
 Added six startup-flow unit tests covering accepted-session sequencing, stalled I/O, offline consent, stale policy revisions, incomplete credentials, rejected sessions and account-switch races. Added a device test for neutral checking/error/retry UI without policy-review controls. Existing encrypted TokenManager and PrivacyRepository implement small startup interfaces so the real state machines can be tested without substituting production behavior. Final GitHub checks are pending before completing this phase.
+
+Phase 5 final verification: commit 4da9393 passed all three GitHub jobs, including the API 34 emulator. Eight startup unit scenarios are included in the final source, along with the neutral startup status device test. The retained startup destination prevents later account/consent updates from recreating the graph; a fresh process initializes again.
+
+## Phase 6 implementation; verification pending
+
+Reorganized Settings into account/profile, preferences, and lower application/support sections. Added current account information from the account-scoped local profile stream, profile and account-management navigation, consistent icons/cards/indicators, Android notification-settings navigation, and the shared feedback host for preference success/failure. Updates retain the existing verified download/installer flow and sit above About, Privacy and data, and FAQs. Both Settings and About display Version 1.2.1 without a build label. Internal versionCode is now 4, preserving package and signing identity; no release has been published.
+
+The first frame now uses the existing persisted theme mirror rather than briefly drawing Light before DataStore emits. Preference read failures fall back safely, theme writes are coalesced and reported, and the profile's theme write now sits inside its existing error handler. Updated recovery/deletion FAQ answers and the existing About device test to require the public version label and reject the build label. Detailed in-app push preferences are added in phase 9; the current notification row opens actual Android settings rather than a placeholder.
+
+Final GitHub validation is pending before completing this phase.

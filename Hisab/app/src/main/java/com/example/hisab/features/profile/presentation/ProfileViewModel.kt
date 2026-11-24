@@ -123,10 +123,9 @@ class ProfileViewModel @Inject constructor(
     fun toggleTheme(isDark: Boolean) {
         viewModelScope.launch {
             val mode = if (isDark) ThemeMode.DARK else ThemeMode.LIGHT
-            themePreferencesManager.setThemeMode(mode)
-            
             val userId = sessionManager.currentUserId.value ?: return@launch
             try {
+                themePreferencesManager.setThemeMode(mode)
                 val user = userRepository.fetchRemoteUser(userId, allowCached = false)
                 if (user != null) userRepository.updateUser(user.copy(themePreference = mode.name.lowercase()))
             } catch (e: CancellationException) {

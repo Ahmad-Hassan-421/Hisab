@@ -83,7 +83,7 @@ class MainActivity : ComponentActivity() {
         setTheme(R.style.Theme_Hisab)
 
         setContent {
-            val themeMode by themePreferencesManager.themeMode.collectAsState(initial = ThemeMode.LIGHT)
+            val themeMode by themePreferencesManager.themeMode.collectAsState(initial = remember { themePreferencesManager.cachedThemeMode() })
             val systemInDarkTheme = isSystemInDarkTheme()
             
             val isDarkTheme = when (themeMode) {
@@ -290,6 +290,7 @@ fun HisabNavHost(startDest: String, sessionViewModel: SessionViewModel = hiltVie
 
         composable("settings") {
             SettingsScreen(
+                onProfile = { navController.navigate("profile") },
                 onAbout = { navController.navigate("about") },
                 onFaq = { navController.navigate("faq") },
                 onPrivacy = { navController.navigate("privacy_data") },

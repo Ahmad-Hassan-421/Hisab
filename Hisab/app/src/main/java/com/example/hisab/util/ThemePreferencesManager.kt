@@ -9,6 +9,9 @@ import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.catch
+import androidx.datastore.preferences.core.emptyPreferences
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -29,14 +32,21 @@ class ThemePreferencesManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val themeKey = stringPreferencesKey("theme_mode")
+    fun cachedThemeMode(): ThemeMode = when (context.getSharedPreferences(SPLASH_PREFS_NAME, Context.MODE_PRIVATE)
+        .getString(SPLASH_THEME_KEY, null)) {
+        "dark" -> ThemeMode.DARK
+        "system" -> ThemeMode.SYSTEM
+        else -> ThemeMode.LIGHT
+    }
 
     val themeMode: Flow<ThemeMode> = context.themeDataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { preferences ->
             when (preferences[themeKey]) {
                 "light"  -> ThemeMode.LIGHT
                 "dark"   -> ThemeMode.DARK
                 "system" -> ThemeMode.SYSTEM
-                else     -> ThemeMode.LIGHT
+                else     -> cachedThemeMode()
             }
         }
 

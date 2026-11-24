@@ -22,6 +22,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.example.hisab.features.profile.domain.UserRepository
+import com.example.hisab.util.SessionManager
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 
 data class SettingsUiState(
     val isCheckingForUpdate: Boolean = false,
@@ -30,7 +34,10 @@ data class SettingsUiState(
     val updateCheckComplete: Boolean = false,
     val currentVersionCode: Int = BuildConfig.VERSION_CODE,
     val currentVersionName: String = BuildConfig.VERSION_NAME,
-    val checkError: String? = null
+    val checkError: String? = null,
+    val savingTheme: Boolean = false,
+    val feedback: String? = null,
+    val feedbackError: Boolean = false
 )
 
 @HiltViewModel
@@ -38,16 +45,21 @@ class SettingsViewModel @Inject constructor(
     private val updateRepository: UpdateRepository,
     private val apkUpdateManager: ApkUpdateManager,
     private val themePreferencesManager: ThemePreferencesManager,
-    private val failures: FailureReporter
+    private val failures: FailureReporter,
+    private val users: UserRepository,
+    private val session: SessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     val downloadStatus: StateFlow<UpdateDownloadStatus> = apkUpdateManager.status
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val account = session.currentUserId.flatMapLatest { id -> if (id == null) flowOf(null) else users.getCurrentUser(id) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val themeMode: StateFlow<ThemeMode> = themePreferencesManager.themeMode
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemeMode.SYSTEM)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), themePreferencesManager.cachedThemeMode())
 
     init {
         checkForUpdates()
@@ -104,10 +116,18 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setThemeMode(mode: ThemeMode) {
+        if (_uiState.value.savingTheme || mode == themeMode.value) return
+        _uiState.update { it.copy(savingTheme = true, feedback = null) }
         viewModelScope.launch {
-            themePreferencesManager.setThemeMode(mode)
+            try {
+                themePreferencesManager.setThemeMode(mode)
+                _uiState.update { it.copy(feedback = "Appearance updated.", feedbackError = false) }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { _uiState.update { it.copy(feedback = failures.report("Save appearance", error).message, feedbackError = true) } }
+            finally { _uiState.update { it.copy(savingTheme = false) } }
         }
     }
+    fun clearFeedback() = _uiState.update { it.copy(feedback = null) }
 
     fun cancelUpdateDownload() = apkUpdateManager.cancel()
 }
