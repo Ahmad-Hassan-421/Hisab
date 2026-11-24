@@ -9,6 +9,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -17,23 +19,31 @@ data class PrivacyDocument(val version: String, val acknowledgmentVersion: Strin
 data class PrivacyStatus(val acknowledged: Boolean, val acknowledgmentVersion: String, val acceptedAt: Long?)
 data class PolicyAcknowledgment(val version: String)
 
+interface PrivacySource {
+    val policy: StateFlow<PrivacyDocument?>
+    suspend fun bundledPolicy(): PrivacyDocument
+    suspend fun refreshPolicy(): PrivacyDocument
+    suspend fun status(): PrivacyStatus
+    suspend fun acknowledge(version: String): PrivacyStatus
+}
+
 @Singleton
 class PrivacyRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val api: HisabApiService
-) {
+) : PrivacySource {
     private val mutablePolicy = MutableStateFlow<PrivacyDocument?>(null)
-    val policy = mutablePolicy.asStateFlow()
+    override val policy = mutablePolicy.asStateFlow()
 
-    suspend fun bundledPolicy(): PrivacyDocument = withContext(Dispatchers.IO) {
+    override suspend fun bundledPolicy(): PrivacyDocument = withContext(Dispatchers.IO) {
         context.assets.open("privacy-policy.json").bufferedReader().use {
             Gson().fromJson(it, PrivacyDocument::class.java)
         }
     }
 
-    suspend fun refreshPolicy(): PrivacyDocument {
+    override suspend fun refreshPolicy(): PrivacyDocument {
         val document = try {
-            api.getPrivacyPolicy()
+            withTimeoutOrNull(5_000) { api.getPrivacyPolicy() } ?: (mutablePolicy.value ?: bundledPolicy())
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
@@ -43,6 +53,6 @@ class PrivacyRepository @Inject constructor(
         return document
     }
 
-    suspend fun status(): PrivacyStatus = api.getPrivacyStatus()
-    suspend fun acknowledge(version: String): PrivacyStatus = api.acknowledgePrivacy(PolicyAcknowledgment(version))
+    override suspend fun status(): PrivacyStatus = api.getPrivacyStatus()
+    override suspend fun acknowledge(version: String): PrivacyStatus = api.acknowledgePrivacy(PolicyAcknowledgment(version))
 }

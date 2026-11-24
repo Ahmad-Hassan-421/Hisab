@@ -40,6 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import com.example.hisab.ui.components.DynamicLogo
 import com.example.hisab.ui.theme.LocalThemeIsDark
 import kotlin.math.PI
@@ -47,7 +50,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 @Composable
-fun SplashScreen(onFinished: () -> Unit) {
+fun SplashScreen(status: String? = null, onFinished: () -> Unit) {
     val progress = remember { Animatable(0f) }
     val currentOnFinished = rememberUpdatedState(onFinished)
     val dark = LocalThemeIsDark.current
@@ -147,6 +150,11 @@ fun SplashScreen(onFinished: () -> Unit) {
                     Spacer(Modifier.height(14.dp))
                     Text("Created by Hantalyze", fontSize = 12.sp,
                         textAlign = TextAlign.Center, color = foreground.copy(alpha = 0.68f))
+                    status?.let {
+                        Spacer(Modifier.height(14.dp))
+                        Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                            fontSize = 13.sp, textAlign = TextAlign.Center, color = foreground)
+                    }
                 }
             }
         }

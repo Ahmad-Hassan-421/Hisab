@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -62,7 +63,6 @@ import com.example.hisab.ui.components.rememberHisabFeedback
 import com.example.hisab.features.auth.presentation.SessionViewModel
 import com.example.hisab.util.ThemeMode
 import com.example.hisab.util.ThemePreferencesManager
-import com.example.hisab.util.TokenManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -77,8 +77,6 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var themePreferencesManager: ThemePreferencesManager
 
-    @Inject
-    lateinit var tokenManager: TokenManager
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,12 +97,23 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    var showSplash by rememberSaveable { mutableStateOf(!testSkipSplash) }
-                    val splashTarget = if (tokenManager.getUserId() != null) "session_entry" else "login"
-                    if (showSplash) {
-                        SplashScreen(onFinished = { showSplash = false })
+                    val sessionViewModel: SessionViewModel = hiltViewModel()
+                    val privacyViewModel: PrivacyViewModel = hiltViewModel()
+                    val accountId by sessionViewModel.currentUserId.collectAsStateWithLifecycle()
+                    val restoring by sessionViewModel.restoring.collectAsStateWithLifecycle()
+                    val privacy by privacyViewModel.state.collectAsStateWithLifecycle()
+                    var animationFinished by rememberSaveable { mutableStateOf(testSkipSplash || intent.getBooleanExtra(EXTRA_SKIP_SPLASH, false)) }
+                    var bootFinished by rememberSaveable { mutableStateOf(false) }
+                    val resolved = startupResolved(restoring, accountId, privacy.gate)
+                    LaunchedEffect(animationFinished, resolved) {
+                        if (animationFinished && resolved) bootFinished = true
+                    }
+                    if (!bootFinished) {
+                        SplashScreen(status = if (animationFinished) "Getting your account ready…" else null,
+                            onFinished = { animationFinished = true })
                     } else {
-                        HisabNavHost(startDest = splashTarget)
+                        HisabNavHost(startDest = if (accountId == null) "login" else "session_entry",
+                            sessionViewModel = sessionViewModel, privacyViewModel = privacyViewModel)
                     }
                 }
             }
@@ -113,10 +122,8 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun HisabNavHost(startDest: String) {
+fun HisabNavHost(startDest: String, sessionViewModel: SessionViewModel = hiltViewModel(), privacyViewModel: PrivacyViewModel = hiltViewModel()) {
     val navController = rememberNavController()
-    val sessionViewModel: SessionViewModel = hiltViewModel()
-    val privacyViewModel: PrivacyViewModel = hiltViewModel()
     val isAdmin by sessionViewModel.isAdmin.collectAsState()
     val requiresSignIn by sessionViewModel.requiresSignIn.collectAsState()
     val reviewNeeded by sessionViewModel.privacyReviewNeeded.collectAsState()
@@ -171,11 +178,15 @@ fun HisabNavHost(startDest: String) {
         }
 
         composable("session_entry") {
-            PrivacyReviewScreen(privacyViewModel, onAccount = { navController.navigate("profile") },
-                onData = { navController.navigate("privacy_data") }, onSignOut = {
-                    privacyViewModel.signOut()
-                    openLogin()
-                })
+            val signOut = { privacyViewModel.signOut(); openLogin() }
+            if (privacyState.gate == PrivacyGate.Review) {
+                PrivacyReviewScreen(privacyViewModel, onAccount = { navController.navigate("profile") },
+                    onData = { navController.navigate("privacy_data") }, onSignOut = signOut)
+            } else {
+                StartupStatusScreen(checking = privacyState.gate != PrivacyGate.Unavailable, message = privacyState.error,
+                    onRetry = { sessionViewModel.checkAutoLogin(); privacyViewModel.checkStatus() },
+                    onAccount = { navController.navigate("profile") }, onData = { navController.navigate("privacy_data") }, onSignOut = signOut)
+            }
         }
 
         composable("privacy_policy") {

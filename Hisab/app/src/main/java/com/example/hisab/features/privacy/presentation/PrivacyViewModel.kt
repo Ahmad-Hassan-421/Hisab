@@ -3,14 +3,17 @@ package com.example.hisab.features.privacy.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.hisab.features.privacy.data.PrivacyDocument
-import com.example.hisab.features.privacy.data.PrivacyRepository
+import com.example.hisab.features.privacy.data.PrivacySource
 import com.example.hisab.features.privacy.data.PrivacyStatus
 import com.example.hisab.util.FailureReporter
 import com.example.hisab.util.SessionManager
-import com.example.hisab.util.TokenManager
+import com.example.hisab.util.SessionCredentials
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
+import java.net.SocketTimeoutException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -31,9 +34,9 @@ data class PrivacyState(
 
 @HiltViewModel
 class PrivacyViewModel @Inject constructor(
-    private val privacy: PrivacyRepository,
+    private val privacy: PrivacySource,
     private val session: SessionManager,
-    private val tokens: TokenManager,
+    private val tokens: SessionCredentials,
     private val failures: FailureReporter
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(PrivacyState())
@@ -65,21 +68,26 @@ class PrivacyViewModel @Inject constructor(
         statusJob = viewModelScope.launch {
             mutableState.update { it.copy(gate = PrivacyGate.Checking, error = null) }
             try {
-                applyStatus(userId, privacy.status())
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                if (!current(userId)) return@launch
-                val cached = tokens.cachedPrivacyVersion(userId)
-                val offlineAllowed = !session.privacyReviewNeeded.value && cached != null &&
-                    (e is IOException || e is HttpException && e.code() >= 500) &&
-                    cached == privacy.bundledPolicy().acknowledgmentVersion
-                if (!current(userId)) return@launch
-                val failure = failures.report("Load privacy status", e)
-                mutableState.update { it.copy(gate = if (offlineAllowed) PrivacyGate.Continue else PrivacyGate.Unavailable,
-                    error = failure.message.takeUnless { offlineAllowed }) }
-            }
+                withTimeout(12_000) { applyStatus(userId, privacy.status()) }
+            } catch (_: TimeoutCancellationException) {
+                statusUnavailable(userId, SocketTimeoutException())
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { statusUnavailable(userId, e) }
         }
+    }
+
+    private suspend fun statusUnavailable(userId: String, error: Exception) {
+        if (!current(userId)) return
+        val cached = tokens.cachedPrivacyVersion(userId)
+        val bundled = try { privacy.bundledPolicy().acknowledgmentVersion }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { null }
+        val offlineAllowed = !session.privacyReviewNeeded.value && cached != null &&
+            (error is IOException || error is HttpException && error.code() >= 500) && cached == bundled
+        if (!current(userId)) return
+        val failure = failures.report("Load privacy status", error)
+        mutableState.update { it.copy(gate = if (offlineAllowed) PrivacyGate.Continue else PrivacyGate.Unavailable,
+            error = failure.message.takeUnless { offlineAllowed }) }
     }
 
     fun acknowledge(policy: PrivacyDocument) {
@@ -88,17 +96,17 @@ class PrivacyViewModel @Inject constructor(
         mutableState.update { it.copy(saving = true, error = null) }
         writingJob = viewModelScope.launch {
             try {
-                applyStatus(userId, privacy.acknowledge(policy.version))
+                withTimeout(12_000) { applyStatus(userId, privacy.acknowledge(policy.version)) }
+            } catch (_: TimeoutCancellationException) {
+                failures.report("Acknowledge privacy policy", SocketTimeoutException())
+                if (current(userId)) mutableState.update { it.copy(error = "Couldn't confirm your acknowledgment yet. Please retry.") }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 if (!current(userId)) return@launch
                 val failure = failures.report("Acknowledge privacy policy", e)
                 if (e is HttpException && e.code() == 409) {
-                    privacy.refreshPolicy()
-                    if (current(userId)) mutableState.update {
-                        it.copy(error = "The policy changed. Review the latest version before continuing.")
-                    }
+                    checkStatus()
                 } else mutableState.update { it.copy(error = failure.message) }
             } finally {
                 if (current(userId)) mutableState.update { it.copy(saving = false) }
@@ -113,13 +121,17 @@ class PrivacyViewModel @Inject constructor(
 
     private suspend fun applyStatus(userId: String, status: PrivacyStatus) {
         if (!current(userId)) return
+        require(status.acknowledgmentVersion.isNotBlank())
         tokens.cachePrivacyVersion(userId, status.acknowledgmentVersion.takeIf { status.acknowledged })
         if (status.acknowledged) {
             session.completePrivacyReview()
             mutableState.update { it.copy(gate = PrivacyGate.Continue, error = null) }
         } else {
-            privacy.refreshPolicy()
-            if (current(userId)) mutableState.update { it.copy(gate = PrivacyGate.Review, error = null) }
+            val latest = privacy.refreshPolicy()
+            if (current(userId)) mutableState.update {
+                if (latest.acknowledgmentVersion == status.acknowledgmentVersion) it.copy(gate = PrivacyGate.Review, error = null)
+                else it.copy(gate = PrivacyGate.Unavailable, error = "The latest policy isn't available. Connect and retry.")
+            }
         }
     }
 

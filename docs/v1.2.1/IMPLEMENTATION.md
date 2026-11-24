@@ -12,8 +12,8 @@ Work proceeds on `codex/hisab-v1.2.1`. Do not publish the stable tag or apply pr
 | 1 | Cursor pagination, virtual lists, authoritative summaries, bounded member loading | Complete |
 | 2 | Private archives, expiry, durable recovery, recovered read-only views and permanent account deletion | Complete |
 | 3 | Shared feedback and confirmation components | Complete |
-| 4 | Reusable skeletons, loading, empty/error/retry behavior | In progress |
-| 5 | Startup/session/consent navigation coordination | Pending |
+| 4 | Reusable skeletons, loading, empty/error/retry behavior | Complete |
+| 5 | Startup/session/consent navigation coordination | In progress |
 | 6 | Settings redesign and visible version presentation | Pending |
 | 7 | Home and Hisab detail presentation | Pending |
 | 8 | Shared/member pictures, durable storage and account-aware image caching | Pending |
@@ -78,3 +78,13 @@ Added shared contextual skeletons for Hisabs, balances, transaction histories, i
 The first local pass compiled the skeletons and passed 42 unit tests; lint caught an unguarded API-26 animation call while Hisab supports API 24. Added the legacy fallback before publication. Final source adds server-clock and error-retention unit cases plus device coverage for recovery loading/failure/retry and empty member-page continuation. Verification of the final source is delegated to the project's existing GitHub CI because repeated local builds exhaust this 8 GB computer's memory; do not mark the phase complete until those checks pass.
 
 Phase 11 scalability audit: splitting an expense correctly uses the full authoritative membership list, independent of loaded profiles. Review support for groups whose split exceeds the bounded 1,000-entry request limit; do not chunk financial writes into non-atomic partial batches.
+
+Phase 4 final verification: commit 7e4f869 passed all three GitHub jobs: backend tests/integration/container/dependency audit, Android tests/lint/APK checks, and API 34 emulator tests. The API-24 compatibility fallback, server-clock expiry and retry/empty-page cases are included in this verified source.
+
+## Phase 5 implementation; verification pending
+
+Startup now creates session and privacy view models while the existing 3D animation runs. The splash remains until restoration and consent resolution finish, then mounts the correct navigation destination once. It does not restart for later consent checks or rotation. A slow initialization displays a neutral account-ready status; checking/unavailable routes no longer mount a Privacy Policy review or its spinner. Actual required policy review and intentional policy access remain intact.
+
+Session restoration and privacy checks are bounded at 12 seconds; policy fetch has a five-second fallback. Offline continuation requires an acknowledgment cached for the same account and matching bundled revision, and is prohibited when a required review is pending. A stale policy document cannot satisfy a newly required revision. Incomplete/rejected saved sessions return to sign-in; late profile responses cannot overwrite a switched account. Required acknowledgment writes remain explicit and retryable, never automatic.
+
+Added six startup-flow unit tests covering accepted-session sequencing, stalled I/O, offline consent, stale policy revisions, incomplete credentials, rejected sessions and account-switch races. Added a device test for neutral checking/error/retry UI without policy-review controls. Existing encrypted TokenManager and PrivacyRepository implement small startup interfaces so the real state machines can be tested without substituting production behavior. Final GitHub checks are pending before completing this phase.
