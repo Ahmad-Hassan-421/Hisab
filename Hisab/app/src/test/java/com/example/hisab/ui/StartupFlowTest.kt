@@ -20,6 +20,17 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StartupFlowTest {
+    @Test fun anEnteredNavigationGraphStaysStableUntilAFreshProcessStarts() {
+        val boot = StartupViewModel()
+        boot.finishAnimation()
+        boot.enter("login")
+        boot.enter("dashboard")
+        assertEquals("login", boot.state.value.destination)
+        assertTrue(boot.state.value.animationFinished)
+        val restarted = StartupViewModel()
+        assertNull(restarted.state.value.destination)
+        assertFalse(restarted.state.value.animationFinished)
+    }
     @Test fun aKnownNewerPolicyBlocksOfflineContinuationWithAnOldAcknowledgment() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val fixture = Fixture(cached = "v1")

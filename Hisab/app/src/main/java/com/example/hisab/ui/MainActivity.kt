@@ -99,21 +99,23 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val sessionViewModel: SessionViewModel = hiltViewModel()
                     val privacyViewModel: PrivacyViewModel = hiltViewModel()
+                    val startupViewModel: StartupViewModel = hiltViewModel()
+                    val boot by startupViewModel.state.collectAsStateWithLifecycle()
                     val accountId by sessionViewModel.currentUserId.collectAsStateWithLifecycle()
                     val restoring by sessionViewModel.restoring.collectAsStateWithLifecycle()
                     val privacy by privacyViewModel.state.collectAsStateWithLifecycle()
-                    var animationFinished by rememberSaveable { mutableStateOf(testSkipSplash || intent.getBooleanExtra(EXTRA_SKIP_SPLASH, false)) }
-                    var bootFinished by rememberSaveable { mutableStateOf(false) }
+                    val animationFinished = boot.animationFinished || testSkipSplash || intent.getBooleanExtra(EXTRA_SKIP_SPLASH, false)
                     val resolved = startupResolved(restoring, accountId, privacy.gate)
-                    LaunchedEffect(animationFinished, resolved) {
-                        if (animationFinished && resolved) bootFinished = true
+                    LaunchedEffect(animationFinished, resolved, accountId, privacy.gate) {
+                        if (animationFinished && resolved && boot.destination == null) {
+                            startupViewModel.enter(if (accountId == null) "login" else if (privacy.gate == PrivacyGate.Continue) "dashboard" else "session_entry")
+                        }
                     }
-                    if (!bootFinished) {
+                    if (boot.destination == null) {
                         SplashScreen(status = if (animationFinished) "Getting your account ready…" else null,
-                            onFinished = { animationFinished = true })
+                            onFinished = startupViewModel::finishAnimation)
                     } else {
-                        val destination = if (accountId == null) "login" else if (privacy.gate == PrivacyGate.Continue) "dashboard" else "session_entry"
-                        HisabNavHost(startDest = destination,
+                        HisabNavHost(startDest = requireNotNull(boot.destination),
                             sessionViewModel = sessionViewModel, privacyViewModel = privacyViewModel)
                     }
                 }
