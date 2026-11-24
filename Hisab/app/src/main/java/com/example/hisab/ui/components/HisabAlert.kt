@@ -4,14 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -21,7 +19,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
 
 enum class AlertKind { SUCCESS, WARNING, ERROR, INFO, CONFIRM, DESTRUCTIVE }
 
@@ -53,10 +50,9 @@ fun HisabAlert(
         AlertKind.WARNING -> MaterialTheme.colorScheme.tertiary
         else -> MaterialTheme.colorScheme.primary
     }
-    AlertDialog(
+    HisabFormDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        properties = DialogProperties(dismissOnBackPress = !busy, dismissOnClickOutside = !busy),
-        shape = RoundedCornerShape(24.dp),
+        busy = busy,
         icon = { Icon(icon, contentDescription = null, tint = accent) },
         title = { Text(title) },
         text = {

@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.hisab.features.invitations.domain.HisabRequest
 import com.example.hisab.features.invitations.domain.RequestRepository
-import com.example.hisab.util.InviteNotificationHelper
+import com.example.hisab.util.InvitationAlerts
 import com.example.hisab.util.SessionManager
 import com.example.hisab.util.AppFailure
 import com.example.hisab.util.FailureReporter
@@ -28,6 +28,7 @@ data class NotificationsUiState(
     val hasLoaded: Boolean = false,
     val loadFailure: AppFailure? = null,
     val error: String? = null,
+    val successMessage: String? = null,
     val nextCursor: String? = null,
     val isLoadingMore: Boolean = false,
     val pageFailure: AppFailure? = null
@@ -37,7 +38,7 @@ data class NotificationsUiState(
 class NotificationsViewModel @Inject constructor(
     private val requestRepository: RequestRepository,
     private val sessionManager: SessionManager,
-    private val inviteNotificationHelper: InviteNotificationHelper,
+    private val inviteNotificationHelper: InvitationAlerts,
     private val failures: FailureReporter
 ) : ViewModel() {
 
@@ -46,6 +47,8 @@ class NotificationsViewModel @Inject constructor(
     private val notifiedRequestIds = mutableSetOf<String>()
     private var refreshJob: Job? = null
     private var resetPages = false
+    private val actionJobs = mutableSetOf<Job>()
+    private var accountGeneration = 0
 
     init {
         startPollingRequests()
@@ -54,6 +57,9 @@ class NotificationsViewModel @Inject constructor(
     private fun startPollingRequests() {
         viewModelScope.launch {
             sessionManager.currentUserId.collectLatest { userId ->
+                accountGeneration++
+                actionJobs.toList().forEach { it.cancel() }
+                actionJobs.clear()
                 refreshJob?.cancel()
                 _uiState.value = NotificationsUiState()
                 notifiedRequestIds.clear()
@@ -133,51 +139,35 @@ class NotificationsViewModel @Inject constructor(
 
     fun clearActionError() = _uiState.update { it.copy(error = null) }
 
-    fun acceptRequest(request: HisabRequest) {
-        if (request.id in _uiState.value.pendingActionRequestIds) return
-        viewModelScope.launch {
-            _uiState.update { it.copy(pendingActionRequestIds = it.pendingActionRequestIds + request.id) }
-            try {
-                requestRepository.acceptRequest(request.id)
-                _uiState.update { state ->
-                    state.copy(
-                        requests = state.requests.filter { it.id != request.id },
-                        pendingActionRequestIds = state.pendingActionRequestIds - request.id
-                    )
-                }
-            } catch (e: Exception) {
-                val failure = failures.report("Accept invitation", e)
-                _uiState.update {
-                    it.copy(
-                        pendingActionRequestIds = it.pendingActionRequestIds - request.id,
-                        error = failure.message
-                    )
-                }
-            }
-        }
-    }
+    fun clearSuccess() = _uiState.update { it.copy(successMessage = null) }
 
-    fun declineRequest(request: HisabRequest) {
+    fun acceptRequest(request: HisabRequest) = decide(request, accepted = true)
+    fun declineRequest(request: HisabRequest) = decide(request, accepted = false)
+
+    private fun decide(request: HisabRequest, accepted: Boolean) {
+        val actor = sessionManager.currentUserId.value ?: return
+        val stamp = accountGeneration
         if (request.id in _uiState.value.pendingActionRequestIds) return
-        viewModelScope.launch {
-            _uiState.update { it.copy(pendingActionRequestIds = it.pendingActionRequestIds + request.id) }
+        _uiState.update { it.copy(pendingActionRequestIds = it.pendingActionRequestIds + request.id, error = null) }
+        val job = viewModelScope.launch {
             try {
-                requestRepository.declineRequest(request.id)
-                _uiState.update { state ->
-                    state.copy(
-                        requests = state.requests.filter { it.id != request.id },
-                        pendingActionRequestIds = state.pendingActionRequestIds - request.id
-                    )
+                if (accepted) requestRepository.acceptRequest(request.id) else requestRepository.declineRequest(request.id)
+                if (sessionManager.currentUserId.value == actor && accountGeneration == stamp) _uiState.update {
+                    it.copy(requests = it.requests.filterNot { row -> row.id == request.id },
+                        successMessage = if (accepted) "Invitation accepted. You joined ${request.groupName}." else "Invitation declined.")
                 }
-            } catch (e: Exception) {
-                val failure = failures.report("Decline invitation", e)
-                _uiState.update {
-                    it.copy(
-                        pendingActionRequestIds = it.pendingActionRequestIds - request.id,
-                        error = failure.message
-                    )
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) {
+                if (sessionManager.currentUserId.value == actor && accountGeneration == stamp) _uiState.update {
+                    it.copy(error = failures.report(if (accepted) "Accept invitation" else "Decline invitation", error).message)
+                }
+            } finally {
+                if (sessionManager.currentUserId.value == actor && accountGeneration == stamp) _uiState.update {
+                    it.copy(pendingActionRequestIds = it.pendingActionRequestIds - request.id)
                 }
             }
         }
+        actionJobs.add(job)
+        job.invokeOnCompletion { actionJobs.remove(job) }
     }
 }

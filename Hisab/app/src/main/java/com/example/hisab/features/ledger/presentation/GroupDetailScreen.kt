@@ -1,5 +1,6 @@
 package com.example.hisab.features.ledger.presentation
 
+import com.example.hisab.ui.components.HisabFormDialog
 import com.example.hisab.ui.components.LoadFailure
 import com.example.hisab.ui.components.ActionLabel
 import com.example.hisab.ui.components.ListSkeleton
@@ -72,8 +73,9 @@ fun GroupDetailScreen(
 
     if (showInviteDialog) {
         LaunchedEffect(Unit) { viewModel.loadSuggestedMembers() }
-        AlertDialog(
-            onDismissRequest = { showInviteDialog = false },
+        HisabFormDialog(
+        busy = uiState.isSendingRequest,
+            onDismissRequest = { if (!uiState.isSendingRequest) showInviteDialog = false },
             title = { Text("Invite to Hisab") },
             text = {
                 Column {
@@ -126,7 +128,7 @@ fun GroupDetailScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showInviteDialog = false }) {
+                TextButton(onClick = { showInviteDialog = false }, enabled = !uiState.isSendingRequest) {
                     Text("Cancel")
                 }
             }

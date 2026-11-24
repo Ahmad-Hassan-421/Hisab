@@ -1,5 +1,6 @@
 package com.example.hisab.features.ledger.presentation.components
 
+import com.example.hisab.ui.components.HisabFormDialog
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 
@@ -39,7 +40,8 @@ fun RepaymentDialog(
     val differentAmounts = remember { mutableStateMapOf<String, String>() }
     val counterparties = if (mode == 4) creditors else debtors
 
-    AlertDialog(
+    HisabFormDialog(
+        busy = isSaving,
         onDismissRequest = { if (!isSaving) onDismiss() },
         title = { Text(if (mode == 0) "Record a payment" else "Enter payment") },
         text = {
@@ -58,6 +60,7 @@ fun RepaymentDialog(
                     }
                 } else if (mode == 1) {
                     OutlinedTextField(
+                        enabled = !isSaving,
                         value = amountText,
                         onValueChange = {
                             amountText = it
@@ -77,6 +80,7 @@ fun RepaymentDialog(
                                 ) {
                                     Text(member.user.name, modifier = Modifier.weight(1f))
                                     OutlinedTextField(
+                        enabled = !isSaving,
                                         value = differentAmounts[member.user.id] ?: "",
                                         onValueChange = {
                                             differentAmounts[member.user.id] = it
@@ -94,6 +98,7 @@ fun RepaymentDialog(
                     LedgerMemberPicker(counterparties, selectedUserId) { selectedUserId = it }
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
+                        enabled = !isSaving,
                         value = amountText,
                         onValueChange = {
                             amountText = it

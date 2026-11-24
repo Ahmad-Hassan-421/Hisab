@@ -1,5 +1,6 @@
 package com.example.hisab.features.ledger.presentation.components
 
+import com.example.hisab.ui.components.HisabFormDialog
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 
@@ -37,7 +38,8 @@ fun AddAmountDialog(
     val amount = LedgerAmounts.parseAmount(amountText)
     val invalidAmount = amountText.isNotBlank() && amount == null
 
-    AlertDialog(
+    HisabFormDialog(
+        busy = isSaving,
         onDismissRequest = { if (!isSaving) onDismiss() },
         title = { Text(if (mode == 0) "Add expense" else if (mode == 1) "Split expense" else "Expense for one member") },
         text = {
@@ -52,6 +54,7 @@ fun AddAmountDialog(
                     }
                 } else {
                     OutlinedTextField(
+                        enabled = !isSaving,
                         value = amountText,
                         onValueChange = { amountText = it },
                         label = { Text("Amount") },
@@ -63,6 +66,7 @@ fun AddAmountDialog(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
+                        enabled = !isSaving,
                         value = description,
                         onValueChange = { description = it },
                         label = { Text("Description") },

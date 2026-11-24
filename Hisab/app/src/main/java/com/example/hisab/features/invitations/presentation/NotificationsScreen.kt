@@ -39,6 +39,7 @@ fun NotificationsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) { if (viewModel.uiState.value.hasLoaded) viewModel.refreshRequests() }
     FeedbackEffect(uiState.error, FeedbackKind.ERROR, viewModel::clearActionError)
+    FeedbackEffect(uiState.successMessage, FeedbackKind.SUCCESS, viewModel::clearSuccess)
 
     Scaffold(
         topBar = {

@@ -1,5 +1,6 @@
 package com.example.hisab.features.ledger.presentation.components
 
+import com.example.hisab.ui.components.HisabFormDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,7 +33,7 @@ fun DebtDetailDialog(
 ) {
     val listState = rememberLazyListState()
     LaunchedEffect(kind) { listState.scrollToItem(0) }
-    AlertDialog(
+    HisabFormDialog(
         onDismissRequest = onDismiss,
         title = { Text(otherUserName?.let { "Transactions with $it" } ?: "Transaction history") },
         text = {

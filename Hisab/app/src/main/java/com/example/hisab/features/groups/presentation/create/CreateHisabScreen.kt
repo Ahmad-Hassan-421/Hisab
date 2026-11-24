@@ -40,10 +40,12 @@ fun CreateHisabScreen(
     viewModel: CreateHisabViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val feedback = com.example.hisab.ui.components.LocalHisabFeedback.current
 
     LaunchedEffect(uiState.successGroupId) {
         if (uiState.successGroupId != null) {
             val groupId = uiState.successGroupId!!
+            feedback?.post?.invoke("Hisab created successfully.", com.example.hisab.ui.components.FeedbackKind.SUCCESS)
             viewModel.clearMessages()
             onGroupCreated(groupId)
         }

@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
+import com.example.hisab.ui.components.FeedbackKind
 
 enum class DataPanel { HOME, ARCHIVES, RECOVERED, HISTORY, MEMBERS, ACCOUNTS, SUBMITTED }
 data class AccountDataState(
@@ -27,7 +28,8 @@ data class AccountDataState(
     val failure: AppFailure? = null,
     val pageFailure: AppFailure? = null,
     val busy: Boolean = false,
-    val message: String? = null
+    val message: String? = null,
+    val messageKind: FeedbackKind = FeedbackKind.INFO
 )
 
 @HiltViewModel
@@ -106,19 +108,20 @@ class AccountDataViewModel @Inject constructor(
 
     fun recover(card: ArchiveCard) = perform("Recover Hisab") { actor, stamp ->
         val receipt = source.recover(card.id)
-        if (current(actor, stamp)) mutable.update { it.copy(panel = DataPanel.SUBMITTED, receipt = receipt, cards = emptyList(), cursor = null) }
+        if (current(actor, stamp)) mutable.update { it.copy(panel = DataPanel.SUBMITTED, receipt = receipt, cards = emptyList(), cursor = null,
+            message = "Recovery request submitted. Your copy will normally be ready within 3–5 minutes.", messageKind = FeedbackKind.SUCCESS) }
     }
     fun deleteCopy(card: ArchiveCard) = perform("Permanently delete recovered Hisab") { actor, stamp ->
         source.deleteCopy(card.id)
-        if (current(actor, stamp)) mutable.update { it.copy(cards = it.cards.filterNot { row -> row.id == card.id }, message = "Recovered Hisab permanently deleted") }
+        if (current(actor, stamp)) mutable.update { it.copy(cards = it.cards.filterNot { row -> row.id == card.id }, message = "Recovered Hisab permanently deleted", messageKind = FeedbackKind.SUCCESS) }
     }
-    fun deleteAccount(accountId: String, password: String) {
+    fun deleteAccount(accountId: String, password: String, onDeleted: () -> Unit = {}) {
         if (accountId != session.currentUserId.value) return
         perform("Permanently delete account") { _, _ ->
             source.deleteAccount(DeleteAccountInput(accountId, password))
             // Once the server confirms deletion, never retain a usable session if local cleanup fails.
             withContext(NonCancellable) {
-                try { cleanup.erase(accountId) } finally { if (session.currentUserId.value == accountId) session.expire() }
+                try { cleanup.erase(accountId); onDeleted() } finally { if (session.currentUserId.value == accountId) session.expire() }
             }
         }
     }
@@ -131,9 +134,13 @@ class AccountDataViewModel @Inject constructor(
         action = viewModelScope.launch {
             try { block(actor, stamp) }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (error: Exception) { if (current(actor, stamp)) mutable.update { it.copy(message = failures.report(operation, error).message) } }
+            catch (error: Exception) { if (current(actor, stamp)) mutable.update {
+                val failure = failures.report(operation, error)
+                it.copy(message = failure.message, messageKind = if (failure in setOf(AppFailure.FORBIDDEN, AppFailure.SESSION_EXPIRED)) FeedbackKind.WARNING else FeedbackKind.ERROR)
+            } }
             finally { if (current(actor, stamp)) mutable.update { it.copy(busy = false) } }
         }
     }
     private fun current(actor: String, stamp: Int) = session.currentUserId.value == actor && generation == stamp
+    fun consumeMessage() = mutable.update { it.copy(message = null) }
 }

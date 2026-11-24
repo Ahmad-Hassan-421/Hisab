@@ -30,10 +30,13 @@ import java.util.Date
 fun AccountDataScreen(onBack: () -> Unit, onPolicy: () -> Unit, viewModel: AccountDataViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lifecycle = LocalLifecycleOwner.current
+    val feedback = LocalHisabFeedback.current
     var recover by remember { mutableStateOf<ArchiveCard?>(null) }
     var deleteCopy by remember { mutableStateOf<ArchiveCard?>(null) }
     var deleteAccount by remember { mutableStateOf<UserDto?>(null) }
     var password by remember { mutableStateOf("") }
+    // Keep form errors beside the password; use the shared host for all other action feedback.
+    if (deleteAccount == null) FeedbackEffect(state.message, state.messageKind, viewModel::consumeMessage)
     val goBack = { if (!state.busy) { if (state.panel == DataPanel.HOME) onBack() else viewModel.back() } }
     BackHandler(state.panel != DataPanel.HOME || state.busy, goBack)
     LaunchedEffect(state.panel, lifecycle) {
@@ -155,7 +158,7 @@ fun AccountDataScreen(onBack: () -> Unit, onPolicy: () -> Unit, viewModel: Accou
                 }
                 if (state.loading) item { CircularProgressIndicator(Modifier.padding(16.dp)) }
                 state.failure?.let { failure -> item { Text(failure.message, color = MaterialTheme.colorScheme.error); TextButton(onClick = { viewModel.refresh() }) { Text("Retry") } } }
-                state.message?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }
+                if (deleteAccount != null) state.message?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
                 item { PageFooter(state.cursor, state.loadingMore, state.pageFailure, viewModel::more) }
             }
         }
@@ -166,7 +169,10 @@ fun AccountDataScreen(onBack: () -> Unit, onPolicy: () -> Unit, viewModel: Accou
         onDismiss = { deleteCopy = null }, confirmLabel = "Delete permanently", onConfirm = { viewModel.deleteCopy(card); deleteCopy = null }, dismissLabel = "Cancel") }
     deleteAccount?.let { account -> HisabAlert(AlertKind.DESTRUCTIVE, "Permanently Delete Account?",
         "Deleting ${account.email} permanently removes your account, private archives, recovered Hisabs and personal data. Shared financial records remain for other members with your identity anonymized. This action cannot be undone.",
-        onDismiss = { deleteAccount = null; password = "" }, confirmLabel = "Permanently Delete", onConfirm = { viewModel.deleteAccount(account.id, password); password = "" },
+        onDismiss = { deleteAccount = null; password = "" }, confirmLabel = "Permanently Delete", onConfirm = {
+            viewModel.deleteAccount(account.id, password) { feedback?.post?.invoke("Account permanently deleted.", FeedbackKind.SUCCESS) }
+            password = ""
+        },
         dismissLabel = "Cancel", busy = state.busy, busyLabel = "Deleting account…", confirmEnabled = password.isNotBlank(), error = state.message,
         details = { OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Confirm your password") }, singleLine = true,
             visualTransformation = PasswordVisualTransformation(), enabled = !state.busy, modifier = Modifier.fillMaxWidth()) }) }

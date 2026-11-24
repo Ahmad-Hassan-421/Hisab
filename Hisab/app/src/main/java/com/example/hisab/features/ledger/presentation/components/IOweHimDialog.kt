@@ -1,5 +1,6 @@
 package com.example.hisab.features.ledger.presentation.components
 
+import com.example.hisab.ui.components.HisabFormDialog
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 
@@ -40,7 +41,8 @@ fun IOweHimDialog(
     }
     val canSubmit = otherMembers.any { it.user.id == selectedUserId } && amount != null
 
-    AlertDialog(
+    HisabFormDialog(
+        busy = isLoading,
         onDismissRequest = {
             if (!isLoading) onDismiss()
         },
@@ -66,6 +68,7 @@ fun IOweHimDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 OutlinedTextField(
+                        enabled = !isLoading,
                     value = amountText,
                     onValueChange = { amountText = it },
                     label = { Text("Amount (PKR)") },
@@ -79,6 +82,7 @@ fun IOweHimDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 OutlinedTextField(
+                        enabled = !isLoading,
                     value = description,
                     onValueChange = { description = it },
                     label = { Text("Description / Note") },

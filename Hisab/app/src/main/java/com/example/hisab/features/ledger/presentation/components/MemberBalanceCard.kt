@@ -1,5 +1,6 @@
 package com.example.hisab.features.ledger.presentation.components
 
+import com.example.hisab.ui.components.HisabFormDialog
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -86,7 +87,7 @@ private fun BalanceBreakdown(title: String, entries: List<DebtDetail>, color: Co
         Text("${entry.userName} · ${formatLedgerAmount(entry.amount)}", style = MaterialTheme.typography.bodyMedium)
     }
     if (entries.size > 4) TextButton(onClick = { showAll = true }) { Text("View all ${entries.size}") }
-    if (showAll) AlertDialog(onDismissRequest = { showAll = false }, title = { Text(title) }, text = {
+    if (showAll) HisabFormDialog(onDismissRequest = { showAll = false }, title = { Text(title) }, text = {
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(entries, key = { it.userId }) { entry ->
                 Text("${entry.userName} · ${formatLedgerAmount(entry.amount)}")

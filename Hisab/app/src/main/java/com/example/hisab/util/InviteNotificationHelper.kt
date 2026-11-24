@@ -20,11 +20,13 @@ import kotlinx.coroutines.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
+interface InvitationAlerts { fun showInviteNotification(request: HisabRequest) }
+
 @Singleton
 class InviteNotificationHelper @Inject constructor(
     @ApplicationContext private val context: Context,
     private val failures: FailureReporter
-) {
+) : InvitationAlerts {
     companion object {
         const val CHANNEL_ID = "hisab_invites_channel"
         const val CHANNEL_NAME = "Hisab Invites"
@@ -53,7 +55,7 @@ class InviteNotificationHelper @Inject constructor(
         }
     }
 
-    fun showInviteNotification(request: HisabRequest) {
+    override fun showInviteNotification(request: HisabRequest) {
         scope.launch {
             try {
                 val avatarBitmap = loadAvatarBitmap(

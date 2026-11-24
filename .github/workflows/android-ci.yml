@@ -92,9 +92,7 @@ jobs:
           disable-animations: true
           working-directory: Hisab
           script: |
-            bash ./gradlew --no-daemon connectedDebugAndroidTest -PHISAB_QA=true -PHISAB_DEBUG_API_URL=http://127.0.0.1:18093/ -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
-            mkdir -p build
-            adb pull /sdcard/Android/data/com.example.hisab.qa/files/splash-previews build/splash-previews
+            bash ../scripts/ci/run-android-instrumentation.sh
       - name: Upload instrumentation reports
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -104,4 +102,5 @@ jobs:
             Hisab/app/build/reports/androidTests/connected/
             Hisab/app/build/outputs/androidTest-results/connected/
             Hisab/build/splash-previews/
+            Hisab/build/ci-instrumentation/
           retention-days: 14
