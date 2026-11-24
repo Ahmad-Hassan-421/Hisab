@@ -112,7 +112,8 @@ class MainActivity : ComponentActivity() {
                         SplashScreen(status = if (animationFinished) "Getting your account ready…" else null,
                             onFinished = { animationFinished = true })
                     } else {
-                        HisabNavHost(startDest = if (accountId == null) "login" else "session_entry",
+                        val destination = if (accountId == null) "login" else if (privacy.gate == PrivacyGate.Continue) "dashboard" else "session_entry"
+                        HisabNavHost(startDest = destination,
                             sessionViewModel = sessionViewModel, privacyViewModel = privacyViewModel)
                     }
                 }

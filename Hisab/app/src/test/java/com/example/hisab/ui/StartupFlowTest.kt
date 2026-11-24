@@ -20,6 +20,16 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StartupFlowTest {
+    @Test fun aKnownNewerPolicyBlocksOfflineContinuationWithAnOldAcknowledgment() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val fixture = Fixture(cached = "v1")
+        try {
+            fixture.source.document.value = fixture.source.document.value!!.copy(version = "v2", acknowledgmentVersion = "v2")
+            runCurrent()
+            fixture.source.answer.completeExceptionally(ConnectException()); runCurrent()
+            assertEquals(PrivacyGate.Unavailable, fixture.privacy.state.value.gate)
+        } finally { fixture.close(); Dispatchers.resetMain() }
+    }
     @Test fun anAcceptedSessionNeverVisitsPolicyReviewWhileAccountAndConsentResolve() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val fixture = Fixture()

@@ -83,7 +83,8 @@ class PrivacyViewModel @Inject constructor(
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { null }
         val offlineAllowed = !session.privacyReviewNeeded.value && cached != null &&
-            (error is IOException || error is HttpException && error.code() >= 500) && cached == bundled
+            (error is IOException || error is HttpException && error.code() >= 500) && cached == bundled &&
+            (privacy.policy.value == null || cached == privacy.policy.value?.acknowledgmentVersion)
         if (!current(userId)) return
         val failure = failures.report("Load privacy status", error)
         mutableState.update { it.copy(gate = if (offlineAllowed) PrivacyGate.Continue else PrivacyGate.Unavailable,
