@@ -10,6 +10,7 @@ import com.example.hisab.util.AppFailure
 import com.example.hisab.util.FailureReporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +27,10 @@ data class NotificationsUiState(
     val pendingActionRequestIds: Set<String> = emptySet(),
     val hasLoaded: Boolean = false,
     val loadFailure: AppFailure? = null,
-    val error: String? = null
+    val error: String? = null,
+    val nextCursor: String? = null,
+    val isLoadingMore: Boolean = false,
+    val pageFailure: AppFailure? = null
 )
 
 @HiltViewModel
@@ -41,6 +45,7 @@ class NotificationsViewModel @Inject constructor(
     val uiState: StateFlow<NotificationsUiState> = _uiState.asStateFlow()
     private val notifiedRequestIds = mutableSetOf<String>()
     private var refreshJob: Job? = null
+    private var resetPages = false
 
     init {
         startPollingRequests()
@@ -54,7 +59,7 @@ class NotificationsViewModel @Inject constructor(
                 notifiedRequestIds.clear()
                 if (userId == null) return@collectLatest
                 while (isActive) {
-                    refreshRequests()
+                    if (!_uiState.value.hasLoaded || _uiState.subscriptionCount.value > 0) refreshRequests()
                     refreshJob?.join()
                     delay(15_000)
                 }
@@ -65,21 +70,62 @@ class NotificationsViewModel @Inject constructor(
     fun refreshRequests() {
         val userId = sessionManager.currentUserId.value ?: return
         if (refreshJob?.isActive == true) return
+        val reset = resetPages
+        resetPages = false
         refreshJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val requests = requestRepository.getPendingRequests(userId)
+                val page = requestRepository.getRequestsPage(userId)
+                val requests = page.items
                 if (sessionManager.currentUserId.value != userId) return@launch
                 requests.forEach { request ->
                     if (request.id.isNotBlank() && notifiedRequestIds.add(request.id)) {
                         inviteNotificationHelper.showInviteNotification(request)
                     }
                 }
-                _uiState.update { it.copy(requests = requests, isLoading = false, hasLoaded = true, loadFailure = null) }
+                _uiState.update {
+                    val preserveTail = !reset && it.requests.size > requests.size
+                    it.copy(requests = (requests + if (preserveTail) it.requests else emptyList()).distinctBy { item -> item.id },
+                        nextCursor = if (preserveTail) it.nextCursor else page.nextCursor,
+                        isLoading = false, hasLoaded = true, loadFailure = null)
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val failure = failures.report("Load invitations", e)
                 if (sessionManager.currentUserId.value == userId) {
                     _uiState.update { it.copy(isLoading = false, loadFailure = failure) }
+                }
+            }
+        }
+    }
+
+    fun reloadRequests() {
+        refreshJob?.cancel()
+        _uiState.update { it.copy(pageFailure = null, isLoadingMore = false) }
+        refreshJob = null
+        resetPages = true
+        refreshRequests()
+    }
+
+    fun loadNextPage() {
+        val userId = sessionManager.currentUserId.value ?: return
+        val cursor = _uiState.value.nextCursor ?: return
+        if (refreshJob?.isActive == true) return
+        _uiState.update { it.copy(isLoadingMore = true, pageFailure = null) }
+        refreshJob = viewModelScope.launch {
+            try {
+                val page = requestRepository.getRequestsPage(userId, cursor)
+                if (sessionManager.currentUserId.value == userId) _uiState.update {
+                    it.copy(requests = (it.requests + page.items).distinctBy { request -> request.id },
+                        nextCursor = page.nextCursor, isLoadingMore = false)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val failure = failures.report("Load more invitations", e)
+                if (sessionManager.currentUserId.value == userId) _uiState.update {
+                    it.copy(isLoadingMore = false, pageFailure = failure)
                 }
             }
         }

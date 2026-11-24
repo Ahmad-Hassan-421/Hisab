@@ -39,6 +39,7 @@ for path in health healthz ready; do
   test "$status" = 200
 done
 python3 scripts/qa/check_api.py --extended --port 18081 | tee "$report_dir/api-regression.txt"
+HISAB_QA_MONGO_CONTAINER="$container" python3 scripts/qa/check_pagination.py --port 18081 | tee "$report_dir/pagination-regression.txt"
 
 # Existing accounts must not acquire a privacy acknowledgment during a server restart.
 docker exec "$container" mongosh hisab_ci --quiet --eval 'db.userDocument.updateMany({}, {$unset:{privacyPolicyVersion:"",privacyPolicyAcknowledgmentVersion:"",privacyPolicyAcceptedAt:"",privacyPolicyHistory:""}})'

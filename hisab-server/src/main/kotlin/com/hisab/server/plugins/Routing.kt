@@ -13,6 +13,7 @@ import com.hisab.server.features.media.storageRoutes
 import com.hisab.server.features.realtime.webSocketRoutes
 import com.hisab.server.features.releases.releaseRoutes
 import com.hisab.server.features.health.healthRoutes
+import com.hisab.server.features.paging.pagedRoutes
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.http.content.*
@@ -23,6 +24,7 @@ import java.io.File
 fun Application.configureRouting(uploadDirectory: File) {
     routing {
         healthRoutes()
+        pagedRoutes()
         authRoutes()
         passwordRecoveryRoutes()
         adminRoutes()

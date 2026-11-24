@@ -19,6 +19,28 @@ import retrofit2.Response
 import retrofit2.http.*
 
 interface HisabApiService {
+    @GET("v2/groups/page")
+    suspend fun getGroupsPage(@Query("cursor") cursor: String? = null): CursorPage<HisabGroupDto>
+
+    @GET("v2/groups/{id}")
+    suspend fun getGroup(@Path("id") groupId: String): HisabGroupDto
+
+    @GET("v2/groups/{id}/overview")
+    suspend fun getLedgerOverview(@Path("id") groupId: String): LedgerOverview
+
+    @GET("v2/groups/{id}/members")
+    suspend fun getMembersPage(@Path("id") groupId: String, @Query("cursor") cursor: String? = null): CursorPage<UserDto>
+
+    @GET("v2/groups/{id}/suggested-members")
+    suspend fun getSuggestedMembersPage(@Path("id") groupId: String, @Query("cursor") cursor: String? = null): CursorPage<UserDto>
+
+    @GET("v2/entries/page")
+    suspend fun getEntriesPage(@Query("groupId") groupId: String, @Query("cursor") cursor: String? = null,
+        @Query("kind") kind: String = "all", @Query("otherUserId") otherUserId: String? = null): CursorPage<HisabEntryDto>
+
+    @GET("v2/requests/page")
+    suspend fun getRequestsPage(@Query("cursor") cursor: String? = null): CursorPage<HisabRequestDto>
+
     @POST("auth/register")
     suspend fun register(@Body req: RegisterRequest): AuthResponse
 

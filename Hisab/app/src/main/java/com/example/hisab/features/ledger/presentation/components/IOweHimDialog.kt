@@ -23,7 +23,11 @@ fun IOweHimDialog(
     error: String?,
     onReload: (() -> Unit)?,
     onDismiss: () -> Unit,
-    onSubmit: (creditorId: String, amount: Double, description: String) -> Unit
+    onSubmit: (creditorId: String, amount: Double, description: String) -> Unit,
+    memberCursor: String? = null,
+    loadingMembers: Boolean = false,
+    memberFailure: com.example.hisab.util.AppFailure? = null,
+    onLoadMoreMembers: () -> Unit = {}
 ) {
     var amountText by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
@@ -56,7 +60,8 @@ fun IOweHimDialog(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
-                LedgerMemberPicker(otherMembers, selectedUserId) { selectedUserId = it }
+                LedgerMemberPicker(otherMembers, selectedUserId, memberCursor, loadingMembers,
+                    memberFailure, onLoadMoreMembers) { selectedUserId = it }
 
                 Spacer(modifier = Modifier.height(12.dp))
 

@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.ConnectException
@@ -119,6 +120,46 @@ class DashboardRecoveryTest {
     }
 
     private fun ViewModel.cancel() = viewModelScope.cancel()
+
+    @Test
+    fun paginationCoalescesLoadsDeduplicatesAndRefreshStartsANewSnapshot() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        var calls = 0
+        var append = CompletableDeferred<com.example.hisab.data.remote.api.CursorPage<HisabGroup>>()
+        val repository = object : GroupRepository by TestGroups() {
+            override suspend fun getGroupsPage(userId: String, cursor: String?): com.example.hisab.data.remote.api.CursorPage<HisabGroup> {
+                calls++
+                return if (cursor == null) com.example.hisab.data.remote.api.CursorPage(listOf(HisabGroup(id = "first")), "next")
+                    else append.await()
+            }
+        }
+        val session = SessionManager().apply { setSession("member", "user") }
+        val viewModel = DashboardViewModel(repository, session, FailureReporter({ true }, {}))
+        try {
+            runCurrent()
+            viewModel.loadNextPage()
+            viewModel.loadNextPage()
+            runCurrent()
+            assertEquals(2, calls)
+            append.completeExceptionally(ConnectException())
+            runCurrent()
+            assertEquals(listOf("first"), viewModel.uiState.value.groups.map { it.id })
+            assertNotNull(viewModel.uiState.value.pageFailure)
+            append = CompletableDeferred(com.example.hisab.data.remote.api.CursorPage(
+                listOf(HisabGroup(id = "first"), HisabGroup(id = "second"))))
+            viewModel.loadNextPage()
+            runCurrent()
+            assertEquals(listOf("first", "second"), viewModel.uiState.value.groups.map { it.id })
+            assertNull(viewModel.uiState.value.nextCursor)
+            viewModel.refreshGroups()
+            runCurrent()
+            assertEquals(listOf("first"), viewModel.uiState.value.groups.map { it.id })
+            assertEquals("next", viewModel.uiState.value.nextCursor)
+        } finally {
+            viewModel.cancel()
+            Dispatchers.resetMain()
+        }
+    }
 
     private class TestGroups : GroupRepository {
         var next = CompletableDeferred(listOf(HisabGroup(id = "existing")))

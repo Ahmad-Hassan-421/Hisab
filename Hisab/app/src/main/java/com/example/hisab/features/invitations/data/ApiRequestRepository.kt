@@ -1,6 +1,7 @@
 package com.example.hisab.features.invitations.data
 
 import com.example.hisab.data.remote.api.HisabApiService
+import com.example.hisab.data.remote.api.CursorPage
 import com.example.hisab.features.invitations.domain.HisabRequest
 import com.example.hisab.features.invitations.domain.RequestRepository
 import javax.inject.Inject
@@ -15,6 +16,10 @@ class ApiRequestRepository @Inject constructor(
 
     override suspend fun getPendingRequests(receiverId: String): List<HisabRequest> =
         api.getPendingRequests(receiverId).map { it.toDomain() }
+
+    override suspend fun getRequestsPage(receiverId: String, cursor: String?) = api.getRequestsPage(cursor).let { page ->
+        CursorPage(page.items.map { it.toDomain() }, page.nextCursor)
+    }
 
     override suspend fun acceptRequest(requestId: String): HisabRequest =
         api.updateRequest(requestId, UpdateRequestRequest("accepted")).toDomain("accepted")

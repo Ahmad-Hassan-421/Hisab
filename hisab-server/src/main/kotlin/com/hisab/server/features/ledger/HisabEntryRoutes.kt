@@ -4,6 +4,8 @@ import com.hisab.server.features.groups.requireGroupMember
 import com.hisab.server.features.groups.lockGroupForMember
 
 import com.hisab.server.database.MongoClientProvider
+import com.hisab.server.database.groupPairBalances
+import com.mongodb.client.model.Filters
 import com.hisab.server.models.HisabEntryDocument
 import com.hisab.server.models.HisabGroupDocument
 import com.hisab.server.plugins.authenticatedUserId
@@ -20,7 +22,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
 import org.litote.kmongo.eq
 import java.math.BigDecimal
-import java.math.RoundingMode
 import java.util.UUID
 
 @Serializable
@@ -80,11 +81,23 @@ private suspend fun persistEntries(inputs: List<CreateEntryRequest>, actor: Stri
         if (inputs.any { !it.isValidFor(group, actor) }) {
             throw RequestFailure(HttpStatusCode.BadRequest, "Invalid ledger entry")
         }
-        val previous = documents.map { entries.findOne(session, HisabEntryDocument::id eq it.id) }
+        val existingById = entries.find(session, Filters.`in`("_id", documents.map { it.id })).toList().associateBy { it.id }
+        val previous = documents.map { existingById[it.id] }
         if (previous.all { it == null }) {
             if (documents.any { it.type == REPAYMENT }) {
-                val history = entries.find(session, HisabEntryDocument::groupId eq group.id).toList()
-                history.validateRepayments(documents)
+                val balances = groupPairBalances(group.id, session).associate {
+                    (it.firstId to it.secondId) to it.amount.toBigDecimal()
+                }.toMutableMap()
+                for (entry in documents) {
+                    val pair = entry.ledgerPair()
+                    val balance = balances.getOrDefault(pair, BigDecimal.ZERO)
+                    val amount = BigDecimal.valueOf(entry.amount)
+                    val owed = if (entry.debtorId == pair.first) -balance else balance
+                    if (entry.type == REPAYMENT && amount > owed) {
+                        throw RequestFailure(HttpStatusCode.Conflict, "Repayment exceeds the outstanding balance")
+                    }
+                    balances[pair] = balance + if (entry.debtorId == pair.first) amount else -amount
+                }
             }
             entries.insertMany(session, documents)
             documents
@@ -100,50 +113,6 @@ private suspend fun persistEntries(inputs: List<CreateEntryRequest>, actor: Stri
 
 private fun HisabEntryDocument.ledgerPair(): Pair<String, String> =
     if (debtorId <= creditorId) debtorId to creditorId else creditorId to debtorId
-
-private class PairBalances {
-    private val amounts = mutableMapOf<Pair<String, String>, BigDecimal>()
-    private val legacyAmounts = mutableMapOf<Pair<String, String>, BigDecimal>()
-
-    fun add(entry: HisabEntryDocument) {
-        if (entry.debtorId == entry.creditorId) return
-        val pair = entry.ledgerPair()
-        val amount = BigDecimal.valueOf(entry.amount)
-        val balances = if (amount.stripTrailingZeros().scale() > AMOUNT_SCALE) legacyAmounts else amounts
-        val signedAmount = if (entry.debtorId == pair.first) amount else -amount
-        balances[pair] = balances.getOrDefault(pair, BigDecimal.ZERO) + signedAmount
-    }
-
-    operator fun get(pair: Pair<String, String>): BigDecimal =
-        amounts.getOrDefault(pair, BigDecimal.ZERO) +
-            legacyAmounts.getOrDefault(pair, BigDecimal.ZERO).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP)
-
-    fun isSettled(): Boolean = (amounts.keys + legacyAmounts.keys).all { this[it].signum() == 0 }
-}
-
-private fun List<HisabEntryDocument>.balancesByPair(): PairBalances =
-    PairBalances().also { balances -> forEach { balances.add(it) } }
-
-private fun List<HisabEntryDocument>.validateRepayments(documents: List<HisabEntryDocument>) {
-    if (any { !it.amount.isFinite() }) {
-        throw RequestFailure(HttpStatusCode.Conflict, "The ledger contains an invalid amount")
-    }
-    val balances = balancesByPair()
-    for (entry in documents) {
-        if (entry.type == REPAYMENT) {
-            val pair = entry.ledgerPair()
-            val balance = balances[pair]
-            val owed = if (entry.debtorId == pair.first) -balance else balance
-            if (BigDecimal.valueOf(entry.amount) > owed) {
-                throw RequestFailure(HttpStatusCode.Conflict, "Repayment exceeds the outstanding balance")
-            }
-        }
-        balances.add(entry)
-    }
-}
-
-private fun List<HisabEntryDocument>.isSettled(): Boolean =
-    all { it.amount.isFinite() } && balancesByPair().isSettled()
 
 fun Route.hisabEntryRoutes() {
     authenticate("auth-jwt") {
@@ -168,7 +137,7 @@ fun Route.hisabEntryRoutes() {
 
             post("/batch") {
                 val req = call.receive<CreateBatchEntryRequest>()
-                if (req.entries.size !in 1..100) return@post call.respondFailure(HttpStatusCode.BadRequest, "Invalid batch size")
+                if (req.entries.size !in 1..1000) return@post call.respondFailure(HttpStatusCode.BadRequest, "Use 1 to 1000 entries per batch")
                 call.respond(HttpStatusCode.Created, persistEntries(req.entries, call.authenticatedUserId))
             }
             
@@ -194,7 +163,7 @@ fun Route.hisabEntryRoutes() {
                 MongoClientProvider.transaction { session ->
                     lockGroupForMember(session, groupId, actor)
                     val filter = HisabEntryDocument::groupId eq groupId
-                    if (!entries.find(session, filter).toList().isSettled()) {
+                    if (groupPairBalances(groupId, session).any { it.amount.toBigDecimal().signum() != 0 }) {
                         throw RequestFailure(HttpStatusCode.Conflict, "Settle the ledger before clearing records")
                     }
                     entries.deleteMany(session, filter)

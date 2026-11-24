@@ -24,7 +24,11 @@ fun AddAmountDialog(
     onReload: (() -> Unit)?,
     onDismiss: () -> Unit,
     onSplitToAll: (amount: Double, description: String) -> Unit,
-    onSpecificPerson: (debtorId: String, amount: Double, description: String) -> Unit
+    onSpecificPerson: (debtorId: String, amount: Double, description: String) -> Unit,
+    memberCursor: String? = null,
+    loadingMembers: Boolean = false,
+    memberFailure: com.example.hisab.util.AppFailure? = null,
+    onLoadMoreMembers: () -> Unit = {}
 ) {
     var mode by remember { mutableStateOf(0) } // 0 = Select Mode, 1 = Split, 2 = Specific
     var amountText by remember { mutableStateOf("") }
@@ -70,7 +74,8 @@ fun AddAmountDialog(
                         Spacer(modifier = Modifier.height(16.dp))
                         Text("Select Debtor:")
                         val otherMembers = members.filter { it.user.id != currentUserId }
-                        LedgerMemberPicker(otherMembers, selectedUserId) { selectedUserId = it }
+                        LedgerMemberPicker(otherMembers, selectedUserId, memberCursor, loadingMembers,
+                            memberFailure, onLoadMoreMembers) { selectedUserId = it }
                     }
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

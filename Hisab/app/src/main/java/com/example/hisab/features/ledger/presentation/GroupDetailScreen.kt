@@ -10,6 +10,7 @@ import com.example.hisab.ui.components.FeedbackEffect
 import com.example.hisab.ui.components.FeedbackKind
 import com.example.hisab.ui.components.LocalHisabFeedback
 import com.example.hisab.ui.components.RefreshFailure
+import com.example.hisab.ui.components.PageFooter
 import androidx.compose.ui.Alignment
 
 import androidx.compose.foundation.layout.*
@@ -27,6 +28,7 @@ import com.example.hisab.features.ledger.presentation.components.DebtDetailDialo
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.hisab.features.ledger.presentation.components.AddAmountDialog
 import com.example.hisab.features.ledger.presentation.components.IOweHimDialog
 import com.example.hisab.features.ledger.presentation.components.MemberBalanceCard
@@ -41,7 +43,7 @@ fun GroupDetailScreen(
     onNavigateBack: () -> Unit,
     viewModel: GroupDetailViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val activeIds = uiState.group?.members.orEmpty().toSet()
     val activeMembers = uiState.members.filter { it.user.id in activeIds }
     
@@ -69,6 +71,7 @@ fun GroupDetailScreen(
     )
 
     if (showInviteDialog) {
+        LaunchedEffect(Unit) { viewModel.loadSuggestedMembers() }
         AlertDialog(
             onDismissRequest = { showInviteDialog = false },
             title = { Text("Invite to Hisab") },
@@ -89,12 +92,12 @@ fun GroupDetailScreen(
                         it.name.contains(inviteUniqueId, ignoreCase = true)
                     }
                     
-                    if (filteredRecs.isNotEmpty()) {
+                    if (filteredRecs.isNotEmpty() || uiState.suggestionCursor != null || uiState.loadingSuggestions || uiState.suggestionFailure != null) {
                         Spacer(modifier = Modifier.height(16.dp))
                         Text("Recommended Users", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                         Spacer(modifier = Modifier.height(4.dp))
                         LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
-                            items(filteredRecs) { recUser ->
+                            items(filteredRecs, key = { it.id }) { recUser ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -104,6 +107,13 @@ fun GroupDetailScreen(
                                 ) {
                                     Text(recUser.name, fontSize = 14.sp)
                                     Text(recUser.uniqueId, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                            item(key = "suggestions-footer") {
+                                PageFooter(uiState.suggestionCursor, uiState.loadingSuggestions, uiState.suggestionFailure,
+                                    onLoad = { viewModel.loadSuggestedMembers(reset = uiState.suggestionCursor == null) })
+                                if (uiState.suggestionFailure != null && uiState.suggestionCursor == null) {
+                                    TextButton(onClick = { viewModel.loadSuggestedMembers() }) { Text("Retry suggestions") }
                                 }
                             }
                         }
@@ -130,6 +140,10 @@ fun GroupDetailScreen(
             isSaving = uiState.isUpdatingLedger,
             error = uiState.ledgerFormError,
             onReload = if (uiState.ledgerNeedsRefresh) viewModel::loadData else null,
+            memberCursor = uiState.nextMemberCursor,
+            loadingMembers = uiState.loadingMembers,
+            memberFailure = uiState.memberPageFailure,
+            onLoadMoreMembers = viewModel::loadMoreMembers,
             onDismiss = { showAddAmountDialog = false },
             onSplitToAll = { amount, desc ->
                 viewModel.addAmountSplit(amount, desc) {
@@ -153,6 +167,10 @@ fun GroupDetailScreen(
             isLoading = uiState.isUpdatingLedger,
             error = uiState.ledgerFormError,
             onReload = if (uiState.ledgerNeedsRefresh) viewModel::loadData else null,
+            memberCursor = uiState.nextMemberCursor,
+            loadingMembers = uiState.loadingMembers,
+            memberFailure = uiState.memberPageFailure,
+            onLoadMoreMembers = viewModel::loadMoreMembers,
             onDismiss = { showIOweHimDialog = false },
             onSubmit = { creditorId, amount, desc ->
                 viewModel.addDirectDebt(creditorId, amount, desc) {
@@ -182,8 +200,8 @@ fun GroupDetailScreen(
             )
         } else {
             RepaymentDialog(
-                debtors = uiState.members.filter { it.user.id in debtorIds },
-                creditors = uiState.members.filter { it.user.id in creditorIds },
+                debtors = viewModel.paymentParticipants().filter { it.user.id in debtorIds },
+                creditors = viewModel.paymentParticipants().filter { it.user.id in creditorIds },
                 isSaving = uiState.isUpdatingLedger,
                 error = uiState.ledgerFormError,
                 onReload = if (uiState.ledgerNeedsRefresh) viewModel::loadData else null,
@@ -282,22 +300,26 @@ fun GroupDetailScreen(
         }
     ) { padding ->
         
-        var detailDialogUser by remember { mutableStateOf<Pair<String, String>?>(null) }
-        
-        detailDialogUser?.let { (userId, userName) ->
-            val entries = uiState.entries.filter { 
-                (it.debtorId == uiState.currentUserId && it.creditorId == userId) || 
-                (it.debtorId == userId && it.creditorId == uiState.currentUserId) 
-            }
+        if (uiState.historyOpen) {
+            val userId = uiState.historyOtherUserId
+            val userName = uiState.memberNames[userId] ?: uiState.members.firstOrNull { it.user.id == userId }?.user?.name
             DebtDetailDialog(
-                pairBalance = uiState.members.firstOrNull { it.user.id == uiState.currentUserId }?.let { balance ->
+                pairBalance = if (userId == null) null else (uiState.members.firstOrNull { it.user.id == uiState.currentUserId }?.let { balance ->
                     balance.debtBreakdown.firstOrNull { it.userId == userId }?.amount
                         ?: balance.receiveBreakdown.firstOrNull { it.userId == userId }?.amount?.negate()
-                } ?: BigDecimal.ZERO,
+                } ?: BigDecimal.ZERO),
                 otherUserName = userName,
-                entries = entries,
+                entries = uiState.historyEntries,
                 currentUserId = uiState.currentUserId,
-                onDismiss = { detailDialogUser = null }
+                onDismiss = viewModel::closeHistory,
+                nextCursor = uiState.historyCursor,
+                loading = uiState.historyLoading,
+                failure = uiState.historyFailure,
+                names = uiState.memberNames,
+                kind = uiState.historyKind,
+                onKind = { viewModel.loadHistory(userId, it) },
+                onLoadMore = viewModel::loadMoreHistory,
+                onRetry = { viewModel.loadHistory(userId, uiState.historyKind) }
             )
         }
         
@@ -326,7 +348,7 @@ fun GroupDetailScreen(
                     item {
                         Text(group.name, Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
                         Text(
-                            if (activeMembers.size == 1) "1 active member" else "${activeMembers.size} active members",
+                            if (group.members.size == 1) "1 active member" else "${group.members.size} active members",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -347,6 +369,7 @@ fun GroupDetailScreen(
                             TextButton(enabled = !uiState.isLeaving, onClick = { showInviteDialog = true }) {
                                 Text("Invite member")
                             }
+                            TextButton(onClick = { viewModel.loadHistory() }) { Text("Transaction history") }
                             if (uiState.hasSettledRecords) {
                                 TextButton(enabled = canWrite && !uiState.ledgerNeedsRefresh, onClick = viewModel::requestClearRecords) {
                                     Text("Clear settled records")
@@ -356,7 +379,7 @@ fun GroupDetailScreen(
                     }
                     item {
                         Text("Members and balances", Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge)
-                        if (!uiState.isLoading && uiState.entries.isEmpty()) Text(
+                        if (!uiState.isLoading && uiState.entryCount == 0L && uiState.entries.isEmpty()) Text(
                             "No transactions yet.",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -370,8 +393,12 @@ fun GroupDetailScreen(
                                 isFormerMember = member.user.id !in activeIds,
                                 isCurrentUser = member.user.id == uiState.currentUserId,
                                 onToggleExpand = { viewModel.toggleMemberExpanded(member.user.id) },
-                                onShowDetails = { id, name -> detailDialogUser = Pair(id, name) }
+                                onShowDetails = { id, _ -> viewModel.loadHistory(id) }
                             )
+                        }
+                        item(key = "members-page-footer") {
+                            PageFooter(uiState.nextMemberCursor, uiState.loadingMembers || uiState.isLoading,
+                                uiState.memberPageFailure, viewModel::loadMoreMembers)
                         }
                     }
                 }

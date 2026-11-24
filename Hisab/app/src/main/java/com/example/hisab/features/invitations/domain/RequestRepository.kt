@@ -1,5 +1,7 @@
 package com.example.hisab.features.invitations.domain
 
+import com.example.hisab.data.remote.api.CursorPage
+
 data class HisabRequest(
     val id: String = "",
     val senderId: String = "",
@@ -18,6 +20,8 @@ data class HisabRequest(
 interface RequestRepository {
     suspend fun sendRequest(receiverUniqueId: String, groupId: String): HisabRequest
     suspend fun getPendingRequests(receiverId: String): List<HisabRequest>
+    suspend fun getRequestsPage(receiverId: String, cursor: String? = null): CursorPage<HisabRequest> =
+        CursorPage(getPendingRequests(receiverId))
     suspend fun acceptRequest(requestId: String): HisabRequest
     suspend fun declineRequest(requestId: String): HisabRequest
 }

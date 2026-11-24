@@ -91,7 +91,7 @@ fun Route.hisabGroupRoutes() {
                 val groups = MongoClientProvider.groups
                 val updated = groups.findOneAndUpdate(
                     and(HisabGroupDocument::id eq id, HisabGroupDocument::members contains userId),
-                    Updates.combine(Updates.pull("members", userId), Updates.addToSet("exMembers", userId)),
+                    Updates.combine(Updates.pull("members", userId), Updates.addToSet("exMembers", userId), Updates.inc("ledgerRevision", 1L)),
                     FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
                 )
                 if (updated == null && groups.findOneById(id) == null) {

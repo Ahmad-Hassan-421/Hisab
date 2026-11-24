@@ -26,7 +26,10 @@ data class DashboardUiState(
     val hasLoaded: Boolean = false,
     val isRefreshing: Boolean = false,
     val failure: AppFailure? = null,
-    val actionError: String? = null
+    val actionError: String? = null,
+    val nextCursor: String? = null,
+    val isLoadingMore: Boolean = false,
+    val pageFailure: AppFailure? = null
 )
 
 @HiltViewModel
@@ -51,7 +54,7 @@ class DashboardViewModel @Inject constructor(
                 _uiState.value = DashboardUiState()
                 if (userId == null) return@collectLatest
                 while (isActive) {
-                    refreshGroups(userInitiated = false)
+                    if (!_uiState.value.hasLoaded || _uiState.subscriptionCount.value > 0) refreshGroups(userInitiated = false)
                     refreshJob?.join()
                     delay(15_000)
                 }
@@ -61,15 +64,18 @@ class DashboardViewModel @Inject constructor(
 
     fun refreshGroups(userInitiated: Boolean = true) {
         val userId = sessionManager.currentUserId.value ?: return
-        if (userInitiated && _uiState.value.hasLoaded) _uiState.update { it.copy(isRefreshing = true) }
         if (refreshJob?.isActive == true) return
+        if (userInitiated && _uiState.value.hasLoaded) _uiState.update { it.copy(isRefreshing = true) }
         refreshJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val groups = groupRepository.getGroupsForUser(userId)
+                val page = groupRepository.getGroupsPage(userId)
                 if (sessionManager.currentUserId.value == userId) {
                     _uiState.update {
-                        it.copy(groups = groups, isLoading = false, isRefreshing = false, hasLoaded = true, failure = null)
+                        val preserveTail = !userInitiated && it.groups.size > page.items.size
+                        it.copy(groups = (page.items + if (preserveTail) it.groups else emptyList()).distinctBy { group -> group.id },
+                            nextCursor = if (preserveTail) it.nextCursor else page.nextCursor,
+                            isLoading = false, isRefreshing = false, hasLoaded = true, failure = null, pageFailure = null)
                     }
                 }
             } catch (e: CancellationException) {
@@ -83,12 +89,38 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    fun loadNextPage() {
+        val userId = sessionManager.currentUserId.value ?: return
+        val cursor = _uiState.value.nextCursor ?: return
+        if (refreshJob?.isActive == true) return
+        _uiState.update { it.copy(isLoadingMore = true, pageFailure = null) }
+        refreshJob = viewModelScope.launch {
+            try {
+                val page = groupRepository.getGroupsPage(userId, cursor)
+                if (sessionManager.currentUserId.value == userId) _uiState.update {
+                    it.copy(groups = (it.groups + page.items).distinctBy { group -> group.id }, nextCursor = page.nextCursor,
+                        isLoadingMore = false, pageFailure = null)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                val failure = failures.report("Load more Hisabs", error)
+                if (sessionManager.currentUserId.value == userId) _uiState.update {
+                    it.copy(isLoadingMore = false, pageFailure = failure)
+                }
+            }
+        }
+    }
+
     fun deleteGroup(groupId: String) {
         viewModelScope.launch {
             try {
                 groupRepository.deleteGroup(groupId)
+                _uiState.update { it.copy(groups = it.groups.filterNot { group -> group.id == groupId }) }
                 refreshJob?.cancel()
                 refreshGroups(userInitiated = false)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val failure = failures.report("Delete Hisab", e)
                 _uiState.update { it.copy(actionError = failure.message) }

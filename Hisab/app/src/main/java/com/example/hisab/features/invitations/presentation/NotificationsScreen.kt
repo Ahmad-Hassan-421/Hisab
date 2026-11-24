@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.hisab.features.invitations.domain.HisabRequest
 import com.example.hisab.ui.components.HisabAvatar
 import com.example.hisab.ui.components.LoadFailure
@@ -26,6 +27,8 @@ import com.example.hisab.ui.components.ListSkeleton
 import com.example.hisab.ui.components.FeedbackEffect
 import com.example.hisab.ui.components.FeedbackKind
 import com.example.hisab.ui.components.RefreshFailure
+import com.example.hisab.ui.components.PageFooter
+import com.example.hisab.ui.components.HisabRefresh
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,7 +36,8 @@ fun NotificationsScreen(
     onNavigateBack: () -> Unit,
     viewModel: NotificationsViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(viewModel) { if (viewModel.uiState.value.hasLoaded) viewModel.refreshRequests() }
     FeedbackEffect(uiState.error, FeedbackKind.ERROR, viewModel::clearActionError)
 
     Scaffold(
@@ -54,7 +58,9 @@ fun NotificationsScreen(
         }
     ) { padding ->
         val failure = uiState.loadFailure
-        Column(Modifier.fillMaxSize().padding(padding)) {
+        HisabRefresh(refreshing = uiState.isLoading && uiState.hasLoaded, onRefresh = viewModel::reloadRequests,
+            enabled = uiState.hasLoaded, modifier = Modifier.padding(padding)) {
+        Column(Modifier.fillMaxSize()) {
         if (uiState.hasLoaded && failure != null) {
             RefreshFailure(failure, viewModel::refreshRequests, !uiState.isLoading)
         }
@@ -121,8 +127,13 @@ fun NotificationsScreen(
                             onDecline = { viewModel.declineRequest(request) }
                         )
                     }
+                    item(key = "requests-page-footer") {
+                        PageFooter(uiState.nextCursor, uiState.isLoadingMore || uiState.isLoading,
+                            uiState.pageFailure, viewModel::loadNextPage)
+                    }
                 }
             }
+        }
         }
         }
     }

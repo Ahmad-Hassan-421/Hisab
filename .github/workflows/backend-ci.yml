@@ -65,5 +65,6 @@ jobs:
             hisab-server/build/ci/gradle.lockfile
             ${{ runner.temp }}/hisab-backend/*.log
             ${{ runner.temp }}/hisab-backend/api-regression.txt
+            ${{ runner.temp }}/hisab-backend/pagination-regression.txt
             ${{ runner.temp }}/hisab-backend/dependency-audit.json
           retention-days: 14

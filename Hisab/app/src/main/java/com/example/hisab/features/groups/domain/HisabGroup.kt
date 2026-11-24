@@ -5,5 +5,6 @@ data class HisabGroup(
     val name: String = "",
     val members: List<String> = emptyList(),
     val exMembers: List<String> = emptyList(),
-    val createdAt: Long = 0
+    val createdAt: Long = 0,
+    val memberCount: Int = members.size
 )

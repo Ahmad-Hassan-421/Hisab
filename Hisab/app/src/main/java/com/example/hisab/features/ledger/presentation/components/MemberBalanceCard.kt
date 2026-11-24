@@ -6,7 +6,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -78,8 +80,17 @@ fun MemberBalanceCard(
 @Composable
 private fun BalanceBreakdown(title: String, entries: List<DebtDetail>, color: Color) {
     if (entries.isEmpty()) return
+    var showAll by remember { mutableStateOf(false) }
     Text(title, style = MaterialTheme.typography.titleSmall, color = color)
-    entries.forEach { entry ->
+    entries.take(4).forEach { entry ->
         Text("${entry.userName} · ${formatLedgerAmount(entry.amount)}", style = MaterialTheme.typography.bodyMedium)
     }
+    if (entries.size > 4) TextButton(onClick = { showAll = true }) { Text("View all ${entries.size}") }
+    if (showAll) AlertDialog(onDismissRequest = { showAll = false }, title = { Text(title) }, text = {
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(entries, key = { it.userId }) { entry ->
+                Text("${entry.userName} · ${formatLedgerAmount(entry.amount)}")
+            }
+        }
+    }, confirmButton = { TextButton(onClick = { showAll = false }) { Text("Close") } })
 }

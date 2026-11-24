@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.hisab.features.groups.domain.HisabGroup
 import com.example.hisab.ui.components.FeedbackEffect
 import com.example.hisab.ui.components.FeedbackKind
@@ -32,6 +33,7 @@ import com.example.hisab.ui.components.HisabRefresh
 import com.example.hisab.ui.components.ListSkeleton
 import com.example.hisab.ui.components.LoadFailure
 import com.example.hisab.ui.components.RefreshFailure
+import com.example.hisab.ui.components.PageFooter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,7 +47,7 @@ fun DashboardScreen(
     onGroupClick: (String) -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     FeedbackEffect(uiState.actionError, FeedbackKind.ERROR, viewModel::clearActionError)
     LaunchedEffect(viewModel) {
         // The view model loads on first entry. Refresh a retained dashboard when returning.
@@ -110,7 +112,7 @@ fun DashboardScreen(
                                     )
                                     val count = uiState.groups.size
                                     Text(
-                                        if (count == 1) "1 group" else "$count groups",
+                                        if (uiState.nextCursor != null) "$count groups loaded" else if (count == 1) "1 group" else "$count groups",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -123,6 +125,9 @@ fun DashboardScreen(
                             }
                             items(uiState.groups, key = { it.id }) { group ->
                                 HisabGroupItem(group) { onGroupClick(group.id) }
+                            }
+                            item(key = "groups-page-footer") {
+                                PageFooter(uiState.nextCursor, uiState.isLoadingMore || uiState.isLoading, uiState.pageFailure, viewModel::loadNextPage)
                             }
                         }
                     }
@@ -167,7 +172,7 @@ private fun HisabGroupItem(group: HisabGroup, onClick: () -> Unit) {
             GroupIcon()
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(group.name, style = MaterialTheme.typography.titleMedium)
-                val count = group.members.distinct().size
+                val count = group.memberCount
                 Text(
                     if (count == 1) "1 member" else "$count members",
                     style = MaterialTheme.typography.bodyMedium,

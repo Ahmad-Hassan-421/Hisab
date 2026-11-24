@@ -70,7 +70,7 @@ fun RepaymentDialog(
                 } else if (mode == 2) {
                     Box(modifier = Modifier.heightIn(max = 200.dp)) {
                         LazyColumn {
-                            items(debtors) { member ->
+                            items(debtors, key = { it.user.id }) { member ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
