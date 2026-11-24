@@ -55,10 +55,17 @@ fun AccountDataScreen(onBack: () -> Unit, onPolicy: () -> Unit, viewModel: Accou
         DataPanel.ACCOUNTS -> "Select your account"
         DataPanel.SUBMITTED -> "Recovery Request Submitted"
     }
+    val hasRows = when (state.panel) {
+        DataPanel.ARCHIVES, DataPanel.RECOVERED -> state.cards.isNotEmpty()
+        DataPanel.HISTORY -> state.entries.isNotEmpty()
+        DataPanel.MEMBERS -> state.members.isNotEmpty()
+        DataPanel.ACCOUNTS -> state.accounts.isNotEmpty()
+        else -> false
+    }
     Scaffold(topBar = { TopAppBar(title = { Text(title) }, navigationIcon = {
         IconButton(onClick = goBack, enabled = !state.busy) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
     }) }) { padding ->
-        HisabRefresh(state.loading, { viewModel.refresh() }, Modifier.padding(padding),
+        HisabRefresh(state.loading && hasRows, { viewModel.refresh() }, Modifier.padding(padding),
             enabled = state.panel !in setOf(DataPanel.HOME, DataPanel.SUBMITTED) && !state.busy) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 if (state.panel == DataPanel.HOME) {
@@ -156,7 +163,17 @@ fun AccountDataScreen(onBack: () -> Unit, onPolicy: () -> Unit, viewModel: Accou
                         }
                     }
                 }
-                if (state.loading) item { CircularProgressIndicator(Modifier.padding(16.dp)) }
+                if (state.loading && !hasRows) item {
+                    val kind = when (state.panel) {
+                        DataPanel.HISTORY -> SkeletonKind.TRANSACTIONS
+                        DataPanel.MEMBERS, DataPanel.ACCOUNTS -> SkeletonKind.MEMBERS
+                        else -> SkeletonKind.ARCHIVES
+                    }
+                    ListSkeleton("Loading ${title.lowercase()}", kind = kind, rows = if (state.panel == DataPanel.ACCOUNTS) 1 else 3)
+                }
+                if (state.panel == DataPanel.ACCOUNTS && !state.loading && state.accounts.isEmpty() && state.failure == null) item {
+                    Text("No manageable account found. Return to sign-in and try again.")
+                }
                 state.failure?.let { failure -> item { Text(failure.message, color = MaterialTheme.colorScheme.error); TextButton(onClick = { viewModel.refresh() }) { Text("Retry") } } }
                 if (deleteAccount != null) state.message?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
                 item { PageFooter(state.cursor, state.loadingMore, state.pageFailure, viewModel::more) }

@@ -110,7 +110,7 @@ fun DashboardScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         if (!uiState.hasLoaded) {
-                            item { ListSkeleton("Loading your Hisabs", avatar = true) }
+                            item { ListSkeleton("Loading your Hisabs", kind = com.example.hisab.ui.components.SkeletonKind.HISABS) }
                         } else if (uiState.groups.isEmpty()) {
                             item { EmptyHisabs(onCreateHisab) }
                         } else {

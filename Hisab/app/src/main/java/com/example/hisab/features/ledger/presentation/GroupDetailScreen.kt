@@ -344,7 +344,7 @@ fun GroupDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (group == null) {
-                    item { ListSkeleton("Loading balances", avatar = true) }
+                    item { com.example.hisab.ui.components.HisabDetailSkeleton() }
                 } else {
                     if (failure != null) item { RefreshFailure(failure, viewModel::loadData, !uiState.isLoading) }
                     item {
@@ -387,7 +387,7 @@ fun GroupDetailScreen(
                         )
                     }
                     if (uiState.isLoading && uiState.members.isEmpty()) {
-                        item { ListSkeleton("Loading balances", avatar = true) }
+                        item { ListSkeleton("Loading balances", kind = com.example.hisab.ui.components.SkeletonKind.BALANCES) }
                     } else {
                         items(uiState.members, key = { it.user.id }) { member ->
                             MemberBalanceCard(

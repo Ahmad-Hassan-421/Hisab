@@ -37,7 +37,17 @@ internal fun LedgerMemberPicker(
             style = MaterialTheme.typography.titleLarge)
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp).selectableGroup(),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp)) {
-            if (members.isEmpty() && nextCursor == null) item { Text("No eligible members.", Modifier.padding(12.dp)) }
+            if (members.isEmpty()) item {
+                when {
+                    loading -> com.example.hisab.ui.components.ListSkeleton("Loading members", rows = 3,
+                        kind = com.example.hisab.ui.components.SkeletonKind.MEMBERS)
+                    failure != null -> Column(Modifier.padding(12.dp)) {
+                        Text(failure.message, color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = onLoadMore) { Text("Retry members") }
+                    }
+                    nextCursor == null -> Text("No eligible members.", Modifier.padding(12.dp))
+                }
+            }
             items(members, key = { it.user.id }, contentType = { "member-picker" }) { member ->
                 val isSelected = member.user.id == selectedId
                 Row(Modifier.fillMaxWidth().selectable(isSelected, role = Role.RadioButton, onClick = {
@@ -49,7 +59,9 @@ internal fun LedgerMemberPicker(
                     Text(member.user.name)
                 }
             }
-            item(key = "member-picker-footer") { PageFooter(nextCursor, loading, failure, onLoadMore) }
+            if (members.isNotEmpty() || !loading && failure == null && nextCursor != null) item(key = "member-picker-footer") {
+                PageFooter(nextCursor, loading, failure, onLoadMore)
+            }
         }
     }
 }

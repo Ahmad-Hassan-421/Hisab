@@ -59,7 +59,7 @@ fun DebtDetailDialog(
                 }
                 if (entries.isEmpty()) item {
                     when {
-                        loading -> ListSkeleton("Loading transactions")
+                        loading -> ListSkeleton("Loading transactions", kind = com.example.hisab.ui.components.SkeletonKind.TRANSACTIONS, rows = 2)
                         failure != null -> Column {
                             Text(failure.message)
                             TextButton(onClick = onRetry) { Text("Retry") }

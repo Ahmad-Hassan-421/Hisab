@@ -15,6 +15,49 @@ import java.net.ConnectException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AccountDataStateTest {
+    @Test fun recoveryAvailabilityUsesServerTimeWhenThePhoneClockIsWrong() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val source = Source().apply { expired = true; serverTime = 0 }
+        val vm = model(source, SessionManager().apply { setSession("alice", "user") })
+        try {
+            runCurrent(); vm.open(DataPanel.ARCHIVES); runCurrent()
+            assertEquals(1, vm.state.value.cards.size)
+            source.serverTime = 2
+            vm.refresh(background = true); runCurrent()
+            assertTrue(vm.state.value.cards.isEmpty())
+        } finally { vm.viewModelScope.cancel(); Dispatchers.resetMain() }
+    }
+
+    @Test fun failedInitialLoadRemainsAnErrorUntilAnExplicitRetry() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val source = Source().apply { fail = true }
+        val vm = model(source, SessionManager().apply { setSession("alice", "user") })
+        try {
+            runCurrent(); vm.open(DataPanel.ARCHIVES); runCurrent()
+            assertNotNull(vm.state.value.failure)
+            vm.refresh(background = true); runCurrent()
+            assertEquals(1, source.calls)
+            assertNotNull(vm.state.value.failure)
+            assertFalse(vm.state.value.loading)
+            vm.refresh(); runCurrent()
+            assertEquals(1, vm.state.value.cards.size)
+            assertNull(vm.state.value.failure)
+        } finally { vm.viewModelScope.cancel(); Dispatchers.resetMain() }
+    }
+    @Test fun expiredArchiveIsRemovedDuringQuietRefreshAndNeverOfferedAsRecoverable() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val source = Source()
+        val vm = model(source, SessionManager().apply { setSession("alice", "user") })
+        try {
+            runCurrent(); vm.open(DataPanel.ARCHIVES); runCurrent()
+            assertEquals(1, vm.state.value.cards.size)
+            source.expired = true
+            vm.refresh(background = true); runCurrent()
+            assertTrue(vm.state.value.cards.isEmpty())
+            assertFalse(vm.state.value.loading)
+            assertNull(vm.state.value.failure)
+        } finally { vm.viewModelScope.cancel(); Dispatchers.resetMain() }
+    }
     @Test fun pagesCoalesceRetryWithoutLosingRowsAndAccountChangeClearsPrivateData() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val source = Source()
@@ -69,15 +112,17 @@ class AccountDataStateTest {
     private fun model(source: Source, session: SessionManager) = AccountDataViewModel(source,
         object : AccountLocalCleanup { override suspend fun erase(accountId: String) = Unit }, session, FailureReporter({ true }, {}))
     private class Source : AccountDataSource {
-        val one = ArchiveCard("one", "Friends", 0, 10000, null, 1205, 2, "available")
+        val one = ArchiveCard("one", "Friends", 0, System.currentTimeMillis() + 60_000, null, 1205, 2, "available")
         val two = one.copy(id = "two")
         var calls = 0
         var fail = false
         var deletions = 0
+        var expired = false
+        var serverTime: Long? = null
         private fun failOnce() { if (fail) { fail = false; throw ConnectException() } }
         override suspend fun archives(cursor: String?): CursorPage<ArchiveCard> {
             calls++; failOnce()
-            return if (cursor == null) CursorPage(listOf(one), "next") else CursorPage(listOf(one, two))
+            return if (cursor == null) CursorPage(listOf(if (expired) one.copy(expiresAt = 1) else one), "next", serverTime = serverTime) else CursorPage(listOf(one, two), serverTime = serverTime)
         }
         override suspend fun recovered(cursor: String?) = archives(cursor)
         override suspend fun entries(id: String, kind: String, cursor: String?) = CursorPage<HisabEntryDto>(emptyList())

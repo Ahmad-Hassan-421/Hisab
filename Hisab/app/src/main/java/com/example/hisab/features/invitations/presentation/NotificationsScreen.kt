@@ -73,7 +73,7 @@ fun NotificationsScreen(
                 }
             }
             !uiState.hasLoaded && uiState.isLoading -> {
-                ListSkeleton("Loading invitations", Modifier.padding(16.dp), avatar = true)
+                ListSkeleton("Loading invitations", Modifier.padding(16.dp), kind = com.example.hisab.ui.components.SkeletonKind.INVITATIONS)
             }
             uiState.requests.isEmpty() -> {
                 Box(

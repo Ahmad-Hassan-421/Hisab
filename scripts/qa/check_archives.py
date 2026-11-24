@@ -57,7 +57,10 @@ def main():
     api("/groups/" + gid, ot, status=403, method="DELETE")
     with ThreadPoolExecutor(max_workers=2) as pool:
         list(pool.map(lambda _: api("/groups/"+gid, at, method="DELETE"), range(2)))
-    archives = api("/account/data/archives", at)["items"]
+    archive_page = api("/account/data/archives", at)
+    assert isinstance(archive_page["serverTime"], int)
+    archives = archive_page["items"]
+    assert all(row["expiresAt"] > archive_page["serverTime"] for row in archives)
     assert len(archives) == 1 and archives[0]["recordCount"] == 1205
     sid = archives[0]["id"]
     assert api("/v2/groups/page", at)["items"] == []

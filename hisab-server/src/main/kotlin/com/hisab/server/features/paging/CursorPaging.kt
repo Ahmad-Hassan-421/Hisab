@@ -12,7 +12,7 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 @Serializable
-data class CursorPage<T>(val items: List<T>, val nextCursor: String? = null, val revision: Long? = null)
+data class CursorPage<T>(val items: List<T>, val nextCursor: String? = null, val revision: Long? = null, val serverTime: Long? = null)
 
 internal data class PagePosition(val time: Long?, val id: String, val ceiling: Long, val revision: Long?) {
     fun after(field: String) = if (time == null) {

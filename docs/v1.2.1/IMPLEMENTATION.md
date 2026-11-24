@@ -11,8 +11,8 @@ Work proceeds on `codex/hisab-v1.2.1`. Do not publish the stable tag or apply pr
 | 0 | Architecture, compatibility and requirements audit | Complete |
 | 1 | Cursor pagination, virtual lists, authoritative summaries, bounded member loading | Complete |
 | 2 | Private archives, expiry, durable recovery, recovered read-only views and permanent account deletion | Complete |
-| 3 | Shared feedback and confirmation components | In progress |
-| 4 | Reusable skeletons, loading, empty/error/retry behavior | Pending |
+| 3 | Shared feedback and confirmation components | Complete |
+| 4 | Reusable skeletons, loading, empty/error/retry behavior | In progress |
 | 5 | Startup/session/consent navigation coordination | Pending |
 | 6 | Settings redesign and visible version presentation | Pending |
 | 7 | Home and Hisab detail presentation | Pending |
@@ -59,7 +59,7 @@ Permanent account deletion rechecks the password and current account, removes pr
 
 Validation: 19 backend unit tests (including calendar-month/leap-year expiry), 96 original HTTP regression checks, 39 Android unit tests, Android lint and QA/instrumentation APK compilation passed. Real disposable MongoDB integration covered simultaneous deletion of 1,205 entries, authorization boundaries, a process restart with a pending job, actual worker delivery, expired-source rejection, independent copy lifetime, immutable copy APIs, permanent deletion replay, incomplete-source rollback and retry, shared-record anonymization and 75-row archive/recovered cursor directories. Private responses were checked for no-store headers. Final logs contain only the intentional incomplete-source warning, with no request error logs. Fixed a response hook that tried to append headers after an authentication challenge and a transaction retry interval too short for large concurrent archives.
 
-No physical device is currently connected. Device/visual and full cross-feature checks remain release gates in phase 12. Durable group/media assets and cache invalidation are implemented in phase 8; groups do not have pictures in the current baseline. A low-memory extra Android invocation initially had a PowerShell argument-parsing error; the completed full Android build passed independently (39 tests, lint, both QA APKs). Run future builds sequentially with quoted Gradle properties on this 8 GB machine. No production accounts or data were modified.
+No physical device is currently connected. Device/visual and full cross-feature checks remain release gates in phase 12. Durable group/media assets and cache invalidation are scheduled for phase 8; groups do not have pictures in the current baseline. A low-memory extra Android invocation initially had a PowerShell argument-parsing error; the completed full Android build passed independently (39 tests, lint, both QA APKs). Run future builds sequentially with quoted Gradle properties on this 8 GB machine. No production accounts or data were modified.
 
 ## Phase 3 implementation and local evidence
 
@@ -68,3 +68,13 @@ All form/history/confirmation dialogs use the common HisabFormDialog frame; conf
 Fixed invitation double submission by acquiring the pending state synchronously before launching work. Decisions are canceled and scoped by account generation; cancellation cannot produce a false failure or stale success after an account switch. Added two meaningful unit tests for coalescing, failure preservation, server-confirmed success and account-switch cleanup. Added two device tests for busy destructive confirmation/cancel semantics and announced, dismissible error feedback.
 
 Local validation: all 41 Android unit tests, lint and both QA APK builds passed. A final contrast-only adjustment passed targeted Kotlin compilation and lint. GitHub at phase-2 commit 8e36814 passed Android tests/lint/APK/signature/launcher checks and backend HTTP integration. Its emulator job stopped before tests because Maven Central returned HTTP 429 for a test-platform dependency. Added a bounded instrumentation retry only for dependency HTTP 429/5xx; actual app-test failures still fail immediately. GitHub device verification is pending; no production deployment was made.
+
+Phase 3 GitHub verification: commit 2387903 passed all three jobs: backend tests/container/dependency audit, Android tests/lint/APK/signature/launcher checks, and API 34 emulator instrumentation (10 passed, two explicit process-restart fixture skips). The previous HTTP 429 download failure is superseded by this successful full run.
+
+## Phase 4 implementation and verification in progress
+
+Added shared contextual skeletons for Hisabs, balances, transaction histories, invitations, members, archives, recovered copies and profiles. Skeletons respect system animator settings, including the API 24/25 fallback, and update drawing opacity without recomposing the containing lists. Existing rows remain during refresh; first-load errors have retry controls rather than misleading empty states. Fixed an empty filtered member page hiding the next-page control. Archived list refresh uses server time for expiry filtering so a wrong phone clock cannot hide valid archives. Background errors on an initially empty private directory persist until explicit retry.
+
+The first local pass compiled the skeletons and passed 42 unit tests; lint caught an unguarded API-26 animation call while Hisab supports API 24. Added the legacy fallback before publication. Final source adds server-clock and error-retention unit cases plus device coverage for recovery loading/failure/retry and empty member-page continuation. Verification of the final source is delegated to the project's existing GitHub CI because repeated local builds exhaust this 8 GB computer's memory; do not mark the phase complete until those checks pass.
+
+Phase 11 scalability audit: splitting an expense correctly uses the full authoritative membership list, independent of loaded profiles. Review support for groups whose split exceeds the bounded 1,000-entry request limit; do not chunk financial writes into non-atomic partial batches.

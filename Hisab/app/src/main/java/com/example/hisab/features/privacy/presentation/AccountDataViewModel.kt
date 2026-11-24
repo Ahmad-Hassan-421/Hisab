@@ -67,9 +67,10 @@ class AccountDataViewModel @Inject constructor(
         val actor = session.currentUserId.value ?: return
         val before = state.value
         if (append && before.cursor == null) return
+        if (background && before.cards.isEmpty() && before.failure != null) return
         val stamp = generation
         load = viewModelScope.launch {
-            mutable.update { it.copy(loading = !append && !background, loadingMore = append, failure = if (append) it.failure else null,
+            mutable.update { it.copy(loading = !append && !background, loadingMore = append, failure = if (append || background) it.failure else null,
                 pageFailure = null) }
             try {
                 val cursor = before.cursor.takeIf { append }
@@ -78,7 +79,8 @@ class AccountDataViewModel @Inject constructor(
                         val page = if (before.panel == DataPanel.ARCHIVES) source.archives(cursor) else source.recovered(cursor)
                         if (current(actor, stamp)) mutable.update {
                             val keep = append || background
-                            it.copy(cards = (if (append) it.cards + page.items else page.items + if (keep) it.cards else emptyList()).distinctBy(ArchiveCard::id),
+                            it.copy(cards = (if (append) it.cards + page.items else page.items + if (keep) it.cards else emptyList())
+                                .distinctBy(ArchiveCard::id).filter { card -> card.expiresAt == null || card.expiresAt > (page.serverTime ?: System.currentTimeMillis()) },
                                 cursor = if (background && it.cards.size > page.items.size) it.cursor else page.nextCursor)
                         }
                     }
@@ -96,6 +98,7 @@ class AccountDataViewModel @Inject constructor(
                     }
                     else -> Unit
                 }
+                if (current(actor, stamp)) mutable.update { it.copy(failure = null) }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 if (current(actor, stamp)) mutable.update {

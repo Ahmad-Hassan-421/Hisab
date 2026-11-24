@@ -63,11 +63,12 @@ fun Route.archiveRoutes() {
             get("/archives") {
                 val actor = call.authenticatedUserId
                 val page = call.pageQuery("archives:$actor")
-                val rows = DB.archives.find(and(eq("ownerId", actor), gt("expiresAt", Date()), page.filter("createdAt")))
+                val now = System.currentTimeMillis()
+                val rows = DB.archives.find(and(eq("ownerId", actor), gt("expiresAt", Date(now)), page.filter("createdAt")))
                     .sort(Sorts.descending("createdAt", "_id")).limit(page.limit + 1).maxTime(3, TimeUnit.SECONDS).toList()
                 val jobs = DB.recoveryJobs.find(and(eq("ownerId", actor), `in`("_id", rows.map { it.getString("_id") })))
                     .limit(page.limit + 1).toList().associateBy { it.getString("_id") }
-                call.respond(CursorPage(rows.take(page.limit).map { it.card(jobs[it.getString("_id")]?.getString("status")) }, page.next(rows, "createdAt")))
+                call.respond(CursorPage(rows.take(page.limit).map { it.card(jobs[it.getString("_id")]?.getString("status")) }, page.next(rows, "createdAt"), serverTime = now))
             }
             post("/archives/{id}/recover") {
                 val actor = call.authenticatedUserId
