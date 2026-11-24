@@ -29,7 +29,9 @@ data class DashboardUiState(
     val actionError: String? = null,
     val nextCursor: String? = null,
     val isLoadingMore: Boolean = false,
-    val pageFailure: AppFailure? = null
+    val pageFailure: AppFailure? = null,
+    val deletingIds: Set<String> = emptySet(),
+    val successMessage: String? = null
 )
 
 @HiltViewModel
@@ -73,7 +75,7 @@ class DashboardViewModel @Inject constructor(
                 if (sessionManager.currentUserId.value == userId) {
                     _uiState.update {
                         val preserveTail = !userInitiated && it.groups.size > page.items.size
-                        it.copy(groups = (page.items + if (preserveTail) it.groups else emptyList()).distinctBy { group -> group.id },
+                        it.copy(groups = (page.items + if (preserveTail) it.groups else emptyList()).distinctBy { group -> group.id }.filterNot { group -> group.id in it.deletingIds },
                             nextCursor = if (preserveTail) it.nextCursor else page.nextCursor,
                             isLoading = false, isRefreshing = false, hasLoaded = true, failure = null, pageFailure = null)
                     }
@@ -98,7 +100,7 @@ class DashboardViewModel @Inject constructor(
             try {
                 val page = groupRepository.getGroupsPage(userId, cursor)
                 if (sessionManager.currentUserId.value == userId) _uiState.update {
-                    it.copy(groups = (it.groups + page.items).distinctBy { group -> group.id }, nextCursor = page.nextCursor,
+                    it.copy(groups = (it.groups + page.items).distinctBy { group -> group.id }.filterNot { group -> group.id in it.deletingIds }, nextCursor = page.nextCursor,
                         isLoadingMore = false, pageFailure = null)
                 }
             } catch (error: CancellationException) {
@@ -113,20 +115,30 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun deleteGroup(groupId: String) {
+        val actor = sessionManager.currentUserId.value ?: return
+        if (groupId in _uiState.value.deletingIds) return
+        val original = _uiState.value.groups.firstOrNull { it.id == groupId } ?: return
+        refreshJob?.cancel()
+        _uiState.update { it.copy(groups = it.groups.filterNot { row -> row.id == groupId }, deletingIds = it.deletingIds + groupId) }
         viewModelScope.launch {
             try {
                 groupRepository.deleteGroup(groupId)
-                _uiState.update { it.copy(groups = it.groups.filterNot { group -> group.id == groupId }) }
+                if (sessionManager.currentUserId.value != actor) return@launch
+                _uiState.update { it.copy(groups = it.groups.filterNot { group -> group.id == groupId }, successMessage = "Hisab deleted. A private copy is recoverable for two months.") }
                 refreshJob?.cancel()
                 refreshGroups(userInitiated = false)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 val failure = failures.report("Delete Hisab", e)
-                _uiState.update { it.copy(actionError = failure.message) }
+                if (sessionManager.currentUserId.value == actor) _uiState.update { it.copy(actionError = failure.message,
+                    groups = (it.groups + original).distinctBy { group -> group.id }.sortedByDescending { group -> group.createdAt }) }
+            } finally {
+                if (sessionManager.currentUserId.value == actor) _uiState.update { it.copy(deletingIds = it.deletingIds - groupId) }
             }
         }
     }
 
     fun clearActionError() = _uiState.update { it.copy(actionError = null) }
+    fun clearSuccess() = _uiState.update { it.copy(successMessage = null) }
 }

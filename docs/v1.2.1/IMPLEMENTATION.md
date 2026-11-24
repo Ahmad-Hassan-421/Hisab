@@ -10,14 +10,14 @@ Work proceeds on `codex/hisab-v1.2.1`. Do not publish the stable tag or apply pr
 |---|---|---|
 | 0 | Architecture, compatibility and requirements audit | Complete |
 | 1 | Cursor pagination, virtual lists, authoritative summaries, bounded member loading | Complete |
-| 2 | Private archives, expiry, durable recovery, recovered read-only views and permanent account deletion | In progress |
-| 3 | Shared feedback and confirmation components | Pending |
+| 2 | Private archives, expiry, durable recovery, recovered read-only views and permanent account deletion | Complete |
+| 3 | Shared feedback and confirmation components | In progress |
 | 4 | Reusable skeletons, loading, empty/error/retry behavior | Pending |
 | 5 | Startup/session/consent navigation coordination | Pending |
 | 6 | Settings redesign and visible version presentation | Pending |
 | 7 | Home and Hisab detail presentation | Pending |
 | 8 | Shared/member pictures, durable storage and account-aware image caching | Pending |
-| 9 | Multi-device push registration, durable event delivery, preferences and deep links | Pending external Firebase configuration |
+| 9 | Multi-device push registration, durable event delivery, preferences and deep links | Pending implementation; configuration located, delivery unverified |
 | 10 | Shared automatic/manual/push update flow and release metadata | Pending |
 | 11 | Security, safe migrations and cross-feature consistency audit | Pending |
 | 12 | Functional, scalability, upgrade and device verification | Pending |
@@ -46,3 +46,17 @@ Validation: 18 backend unit tests, 96 existing HTTP regression checks, 37 Androi
 
 Firebase project confirmed by user: hisab-90ff2. User configured FIREBASE_SERVICE_ACCOUNT_JSON in Render; clarified that this requires the complete service-account JSON rather than only its private_key block. Credential validity and actual push delivery are not yet verified.
 
+
+Firebase follow-up: user confirmed that the full service-account JSON is set in Render. Matching public Android configuration was found at C:/Users/User/Downloads/google-services (4).json (project hisab-90ff2, package com.example.hisab). No private credential content was read or added to the repository.
+
+## Phase 2 evidence
+
+Implemented normalized private snapshots in hard_copy_of_user_data and archived_hisab_records, with authenticated owner IDs, private owner email snapshots, public historical members, complete history, deletion timestamps and BSON-date TTL expiry after two UTC calendar months. Normalized rows avoid the 16 MB document limit. Shared deletion removes only the actor's access; a last-member deletion removes the active source atomically. The dashboard now exposes deletion with confirmation, optimistic removal, safe error restoration and duplicate-request protection.
+
+Persistent MongoDB recovery jobs become eligible after three minutes, retry in the server worker, survive process restarts and publish a complete read-only copy transactionally. Integrity checks reject partial sources. Delivered records have no expiry; deleting a delivered copy permanently deletes its source, rows and job. Archived/recovered directories, historical members and filtered history use authenticated cursor pages. Privacy screens provide selection, recovery confirmation/status, historical views and the account selection/password confirmation flow. Removed correction submission from frontend and backend. The prior access receipt endpoint remains for older clients.
+
+Permanent account deletion rechecks the password and current account, removes private data/jobs/tokens, queues safe owned-file cleanup, deletes exclusively personal groups and anonymizes identity in retained shared ledgers and other owners' copies. Transactions serialize account/membership changes, uploads and invitations to prevent deletion races. Updated the bundled retention/deletion notice and required acknowledgment revision. Existing users are not acknowledged automatically.
+
+Validation: 19 backend unit tests (including calendar-month/leap-year expiry), 96 original HTTP regression checks, 39 Android unit tests, Android lint and QA/instrumentation APK compilation passed. Real disposable MongoDB integration covered simultaneous deletion of 1,205 entries, authorization boundaries, a process restart with a pending job, actual worker delivery, expired-source rejection, independent copy lifetime, immutable copy APIs, permanent deletion replay, incomplete-source rollback and retry, shared-record anonymization and 75-row archive/recovered cursor directories. Private responses were checked for no-store headers. Final logs contain only the intentional incomplete-source warning, with no request error logs. Fixed a response hook that tried to append headers after an authentication challenge and a transaction retry interval too short for large concurrent archives.
+
+No physical device is currently connected. Device/visual and full cross-feature checks remain release gates in phase 12. Durable group/media assets and cache invalidation are implemented in phase 8; groups do not have pictures in the current baseline. A low-memory extra Android invocation initially had a PowerShell argument-parsing error; the completed full Android build passed independently (39 tests, lint, both QA APKs). Run future builds sequentially with quoted Gradle properties on this 8 GB machine. No production accounts or data were modified.

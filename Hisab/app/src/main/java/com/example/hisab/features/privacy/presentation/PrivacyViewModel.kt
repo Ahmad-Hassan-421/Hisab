@@ -26,9 +26,7 @@ enum class PrivacyGate { Checking, Continue, Review, Unavailable }
 data class PrivacyState(
     val gate: PrivacyGate = PrivacyGate.Checking,
     val error: String? = null,
-    val saving: Boolean = false,
-    val requestMessage: String? = null,
-    val submittingRequest: Boolean = false
+    val saving: Boolean = false
 )
 
 @HiltViewModel
@@ -43,7 +41,6 @@ class PrivacyViewModel @Inject constructor(
     val document = privacy.policy
     private var statusJob: Job? = null
     private var writingJob: Job? = null
-    private var requestJob: Job? = null
     private var activeAccount: String? = null
 
     init {
@@ -53,7 +50,6 @@ class PrivacyViewModel @Inject constructor(
                     activeAccount = id
                     statusJob?.cancel()
                     writingJob?.cancel()
-                    requestJob?.cancel()
                     mutableState.value = PrivacyState()
                 }
                 if (id != null && (requiresReview || state.value.gate == PrivacyGate.Checking)) checkStatus()
@@ -109,27 +105,6 @@ class PrivacyViewModel @Inject constructor(
             }
         }
     }
-
-    fun submitDataRequest(type: String) {
-        val userId = session.currentUserId.value ?: return
-        if (state.value.submittingRequest) return
-        mutableState.update { it.copy(submittingRequest = true, requestMessage = null) }
-        requestJob = viewModelScope.launch {
-            try {
-                val receipt = privacy.requestData(type)
-                if (current(userId)) mutableState.update { it.copy(requestMessage = "Request received. Reference ${receipt.reference}") }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                val failure = failures.report("Submit privacy request", e)
-                if (current(userId)) mutableState.update { it.copy(requestMessage = failure.message) }
-            } finally {
-                if (current(userId)) mutableState.update { it.copy(submittingRequest = false) }
-            }
-        }
-    }
-
-    fun clearDataMessage() = mutableState.update { it.copy(requestMessage = null) }
 
     fun signOut() {
         tokens.clearAll()

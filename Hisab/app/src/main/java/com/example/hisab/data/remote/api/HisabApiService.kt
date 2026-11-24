@@ -9,16 +9,34 @@ import com.example.hisab.features.admin.data.AccountDirectoryPage
 import com.example.hisab.features.admin.data.AccountOverview
 import com.example.hisab.features.admin.data.ChangeAccountStatus
 import com.example.hisab.features.privacy.data.PolicyAcknowledgment
-import com.example.hisab.features.privacy.data.PrivacyDataReceipt
-import com.example.hisab.features.privacy.data.PrivacyDataRequest
 import com.example.hisab.features.privacy.data.PrivacyDocument
 import com.example.hisab.features.privacy.data.PrivacyStatus
+import com.example.hisab.features.privacy.data.ArchiveCard
+import com.example.hisab.features.privacy.data.RecoveryReceipt
+import com.example.hisab.features.privacy.data.HistoricalMember
+import com.example.hisab.features.privacy.data.DeleteAccountInput
 import com.example.hisab.features.settings.data.AppUpdateResponse
 import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
 
 interface HisabApiService {
+    @GET("account/data/archives")
+    suspend fun getArchives(@Query("cursor") cursor: String?): CursorPage<ArchiveCard>
+    @GET("account/data/recovered")
+    suspend fun getRecovered(@Query("cursor") cursor: String?): CursorPage<ArchiveCard>
+    @POST("account/data/archives/{id}/recover")
+    suspend fun recoverArchive(@Path("id") id: String): RecoveryReceipt
+    @GET("account/data/recovered/{id}/entries")
+    suspend fun getRecoveredEntries(@Path("id") id: String, @Query("kind") kind: String, @Query("cursor") cursor: String?): CursorPage<HisabEntryDto>
+    @GET("account/data/recovered/{id}/members")
+    suspend fun getRecoveredMembers(@Path("id") id: String, @Query("cursor") cursor: String?): CursorPage<HistoricalMember>
+    @DELETE("account/data/recovered/{id}")
+    suspend fun deleteRecovered(@Path("id") id: String)
+    @GET("account/data/accounts")
+    suspend fun getDeletableAccounts(): List<UserDto>
+    @POST("account/data/delete-account")
+    suspend fun permanentlyDeleteAccount(@Body input: DeleteAccountInput)
     @GET("v2/groups/page")
     suspend fun getGroupsPage(@Query("cursor") cursor: String? = null): CursorPage<HisabGroupDto>
 
@@ -70,9 +88,6 @@ interface HisabApiService {
 
     @POST("account/privacy/acknowledge")
     suspend fun acknowledgePrivacy(@Body acknowledgment: PolicyAcknowledgment): PrivacyStatus
-
-    @POST("account/privacy/data-requests")
-    suspend fun requestPrivacyData(@Body request: PrivacyDataRequest): PrivacyDataReceipt
 
     @GET("admin/overview")
     suspend fun getAccountOverview(): AccountOverview

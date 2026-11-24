@@ -79,21 +79,8 @@ fun PrivacyReviewScreen(viewModel: PrivacyViewModel, onAccount: () -> Unit, onDa
 }
 
 @Composable
-fun PrivacyDataScreen(viewModel: PrivacyViewModel, onBack: () -> Unit, onPolicy: () -> Unit) {
-    val state by viewModel.state.collectAsState()
-    LaunchedEffect(Unit) { viewModel.clearDataMessage() }
-    InformationScreen("Privacy and data", onBack) {
-        Text("You can ask Hantalyze to review a request for access, correction, or deletion. Your request is recorded with your account and may require further verification.")
-        OutlinedButton(onClick = onPolicy, modifier = Modifier.fillMaxWidth()) { Text("Privacy Policy") }
-        OutlinedButton(onClick = { viewModel.submitDataRequest("access") }, enabled = !state.submittingRequest,
-            modifier = Modifier.fillMaxWidth()) { Text("Request a copy of my data") }
-        OutlinedButton(onClick = { viewModel.submitDataRequest("correction") }, enabled = !state.submittingRequest,
-            modifier = Modifier.fillMaxWidth()) { Text("Request a correction") }
-        OutlinedButton(onClick = { viewModel.submitDataRequest("deletion") }, enabled = !state.submittingRequest,
-            modifier = Modifier.fillMaxWidth()) { Text("Request account deletion") }
-        state.requestMessage?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
-        if (state.submittingRequest) CircularProgressIndicator()
-    }
+fun PrivacyDataScreen(onBack: () -> Unit, onPolicy: () -> Unit) {
+    AccountDataScreen(onBack, onPolicy)
 }
 
 @Composable

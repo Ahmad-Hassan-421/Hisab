@@ -37,7 +37,8 @@ fun HisabAlert(
     busy: Boolean = false,
     busyLabel: String = "Working…",
     confirmEnabled: Boolean = true,
-    error: String? = null
+    error: String? = null,
+    details: (@Composable () -> Unit)? = null
 ) {
     val icon = when (kind) {
         AlertKind.SUCCESS -> Icons.Default.CheckCircle
@@ -64,6 +65,7 @@ fun HisabAlert(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(message)
+                details?.invoke()
                 if (error != null) Text(error, color = MaterialTheme.colorScheme.error)
             }
         },

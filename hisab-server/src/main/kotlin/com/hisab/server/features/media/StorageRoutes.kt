@@ -2,6 +2,10 @@ package com.hisab.server.features.media
 
 import com.hisab.server.plugins.respondFailure
 import com.hisab.server.plugins.privacyAcknowledged
+import com.hisab.server.plugins.authenticatedUserId
+import com.hisab.server.database.MongoClientProvider
+import com.hisab.server.features.privacy.lockAccount
+import org.bson.Document
 import com.hisab.server.features.accounts.privacyAcknowledgmentRequiredStatus
 import io.ktor.http.content.*
 import io.ktor.http.*
@@ -52,6 +56,16 @@ fun Route.storageRoutes(uploadDirectory: File) {
             }
             val fileName = "${UUID.randomUUID()}.$extension"
             withContext(Dispatchers.IO) { File(uploadDirectory, fileName).writeBytes(image) }
+            try {
+                MongoClientProvider.transaction { session ->
+                    lockAccount(session, call.authenticatedUserId)
+                    MongoClientProvider.personalFiles.insertOne(session, Document("_id", fileName)
+                        .append("ownerId", call.authenticatedUserId).append("fileName", fileName))
+                }
+            } catch (error: Exception) {
+                withContext(Dispatchers.IO) { File(uploadDirectory, fileName).delete() }
+                throw error
+            }
             call.respond(UploadResponse(ProfileImages.publicUrl("/static/uploads/$fileName")))
         }
     }

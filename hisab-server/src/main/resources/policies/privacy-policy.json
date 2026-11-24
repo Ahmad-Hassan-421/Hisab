@@ -1,7 +1,7 @@
 {
-  "version": "2026-11-15",
-  "acknowledgmentVersion": "2026-11-15",
-  "effectiveDate": "15 November 2026",
+  "version": "2026-11-24",
+  "acknowledgmentVersion": "2026-11-24",
+  "effectiveDate": "24 November 2026",
   "sections": [
     {
       "title": "About Hisab",
@@ -29,11 +29,11 @@
     },
     {
       "title": "How long information is kept",
-      "body": "Accounts, ledgers, invitations, and audit records are stored while they are needed to operate the service and maintain shared records. Leaving a Hisab can preserve earlier transactions for the other members. Local photos are removed if you clear app storage or uninstall it. Cached records and session details on your phone are governed by your app and device settings. A request to delete an account is reviewed separately from changes to records shared with other members."
+      "body": "Deleting a Hisab removes it from your list and saves a private historical recovery source for up to two calendar months. Its expiry date is set when it is deleted; recovery does not extend it. Automatic database expiration removes the source and its archived records independently of app use. Recovery jobs normally deliver a read-only copy within 3-5 minutes while the service is running. A delivered recovered copy remains until you delete it or your account. Deleting a recovered copy permanently removes its recovery source and job; it cannot be recovered again. Shared active records remain accessible to other current members."
     },
     {
       "title": "Your data and privacy requests",
-      "body": "You can review your account in Profile and request access, correction, or deletion through Settings, under Privacy and data. The service records your request for review. The operator may need to verify your identity or consider shared records before responding. Depending on the laws applicable to you, you may have further rights or access to a privacy regulator. For general contact, use the support link in About and ask for a private channel. GitHub issues are public."
+      "body": "Settings, under Privacy and data, lets you select deleted Hisabs for recovery, view or permanently delete recovered read-only copies, and permanently delete your signed-in account after entering its password. Account deletion removes your sign-in information, private archives, copies, jobs, notification registrations and exclusively personal data. Financial records shared with other members are retained with your account identity anonymized. Personal files are queued for automatic cleanup. You can edit your profile normally. For other privacy questions or rights under applicable law, request a private support channel through About. GitHub issues are public."
     },
     {
       "title": "Children and changes to this notice",

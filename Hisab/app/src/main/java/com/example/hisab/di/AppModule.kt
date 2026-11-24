@@ -92,6 +92,10 @@ object NetworkModule {
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
     @Binds
+    abstract fun bindAccountData(impl: com.example.hisab.features.privacy.data.AccountDataRepository): com.example.hisab.features.privacy.data.AccountDataSource
+    @Binds
+    abstract fun bindAccountCleanup(impl: com.example.hisab.features.privacy.data.DeviceAccountCleanup): com.example.hisab.features.privacy.data.AccountLocalCleanup
+    @Binds
     @Singleton
     abstract fun bindUserRepository(impl: ApiUserRepository): UserRepository
 

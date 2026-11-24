@@ -4,6 +4,7 @@ import com.hisab.server.database.MongoClientProvider
 import com.hisab.server.database.databaseStartupTimeout
 import com.hisab.server.database.initializeDatabase
 import com.hisab.server.features.accounts.EmailUtil
+import com.hisab.server.features.privacy.startPrivacyWorker
 import com.hisab.server.plugins.*
 import io.ktor.server.application.*
 import io.ktor.server.netty.*
@@ -41,4 +42,5 @@ fun Application.module() {
     configureSerialization()
     configureSockets()
     configureRouting(uploadDirectory)
+    startPrivacyWorker(uploadDirectory)
 }

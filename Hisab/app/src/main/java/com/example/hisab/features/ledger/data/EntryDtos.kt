@@ -8,7 +8,9 @@ data class HisabEntryDto(
     val amount: Double,
     val description: String?,
     val timestamp: Long,
-    val type: String = "EXPENSE"
+    val type: String = "EXPENSE",
+    val debtorName: String? = null,
+    val creditorName: String? = null
 )
 
 data class CreateEntryRequest(

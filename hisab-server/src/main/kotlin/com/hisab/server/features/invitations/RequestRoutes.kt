@@ -1,6 +1,7 @@
 package com.hisab.server.features.invitations
 
 import com.hisab.server.features.groups.lockGroupForMember
+import com.hisab.server.features.privacy.lockAccount
 import com.hisab.server.features.media.ProfileImages
 
 import com.hisab.server.database.MongoClientProvider
@@ -84,6 +85,7 @@ fun Route.requestRoutes() {
                 
                 val requests = MongoClientProvider.requests
                 val (request, created) = MongoClientProvider.transaction { session ->
+                    listOf(sender.id, receiver.id).sorted().forEach { lockAccount(session, it) }
                     val group = lockGroupForMember(session, req.groupId, senderId)
                     if (receiver.id in group.members) {
                         throw RequestFailure(HttpStatusCode.BadRequest, "User is already in the Hisab")
@@ -141,6 +143,7 @@ fun Route.requestRoutes() {
                 val actor = call.authenticatedUserId
                 val requests = MongoClientProvider.requests
                 val (updated, joined) = MongoClientProvider.transaction { session ->
+                    lockAccount(session, actor)
                     val request = requests.findOne(session, HisabRequestDocument::id eq id)
                         ?: throw RequestFailure(HttpStatusCode.NotFound, "Invitation not found")
                     if (request.receiverId != actor) {

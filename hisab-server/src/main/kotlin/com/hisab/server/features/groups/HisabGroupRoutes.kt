@@ -8,6 +8,8 @@ import com.hisab.server.models.HisabRequestDocument
 import com.hisab.server.plugins.RequestFailure
 import com.hisab.server.plugins.PrivacyAccess
 import com.hisab.server.plugins.authenticatedUserId
+import com.hisab.server.features.privacy.archiveGroup
+import com.hisab.server.features.privacy.lockAccount
 import com.mongodb.client.model.FindOneAndUpdateOptions
 import com.mongodb.client.model.ReturnDocument
 import com.mongodb.client.model.Updates
@@ -70,18 +72,17 @@ fun Route.hisabGroupRoutes() {
                     return@post call.respondFailure(HttpStatusCode.BadRequest, "Invalid group")
                 }
                 val newGroup = HisabGroupDocument(name = req.name.trim(), members = listOf(userId))
-                MongoClientProvider.groups.insertOne(newGroup)
+                MongoClientProvider.transaction { session ->
+                    lockAccount(session, userId)
+                    MongoClientProvider.groups.insertOne(session, newGroup)
+                }
                 call.respond(HttpStatusCode.Created, newGroup)
             }
             delete("/{id}") {
                 val id = call.parameters["id"] ?: return@delete call.respondFailure(HttpStatusCode.BadRequest)
                 val actor = call.authenticatedUserId
-                MongoClientProvider.transaction { session ->
-                    lockGroupForMember(session, id, actor)
-                    MongoClientProvider.entries.deleteMany(session, HisabEntryDocument::groupId eq id)
-                    MongoClientProvider.requests.deleteMany(session, HisabRequestDocument::groupId eq id)
-                    MongoClientProvider.groups.deleteOne(session, HisabGroupDocument::id eq id)
-                }
+                archiveGroup(actor, id)
+                MongoClientProvider.groups.findOneById(id)?.members?.forEach { WebSocketManager.notifyUser(it, "GROUP_UPDATED") }
                 call.respond(HttpStatusCode.OK)
             }
             post("/{id}/leave") {

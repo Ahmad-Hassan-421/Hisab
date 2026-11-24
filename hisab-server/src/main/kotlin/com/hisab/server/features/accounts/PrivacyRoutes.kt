@@ -91,7 +91,7 @@ fun Route.privacyRoutes() {
             }
             post("/data-requests") {
                 val type = call.receive<DataRequestInput>().type
-                if (type !in setOf("access", "correction", "deletion")) {
+                if (type != "access") {
                     return@post call.respondFailure(HttpStatusCode.BadRequest, "Choose a valid privacy request")
                 }
                 val userId = call.authenticatedUserId

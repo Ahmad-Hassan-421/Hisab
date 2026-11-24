@@ -61,6 +61,8 @@ class LocalProfilePhotoStore @Inject constructor(@ApplicationContext private val
         write(accountFile(accountId)) { }
     }
 
+    suspend fun erase(accountId: String) = onDisk { AtomicFile(accountFile(accountId)).delete() }
+
     private suspend fun <T> onDisk(operation: () -> T): T =
         withContext(Dispatchers.IO) { access.withLock { operation() } }
 

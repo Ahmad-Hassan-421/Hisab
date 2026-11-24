@@ -41,6 +41,15 @@ object MongoClientProvider {
     val requests: CoroutineCollection<HisabRequestDocument> = database.getCollection()
     val inviteMessages: CoroutineCollection<InviteMessageDocument> = database.getCollection("invite_message_document")
     val recoveryLimits: CoroutineCollection<Document> = database.getCollection("account_recovery_limits")
+    val archives: CoroutineCollection<Document> = database.getCollection("hard_copy_of_user_data")
+    val archiveRecords: CoroutineCollection<Document> = database.getCollection("archived_hisab_records")
+    val recovered: CoroutineCollection<Document> = database.getCollection("recovered_hisabs")
+    val recoveredRecords: CoroutineCollection<Document> = database.getCollection("recovered_hisab_records")
+    val recoveryJobs: CoroutineCollection<Document> = database.getCollection("hisab_recovery_jobs")
+    val personalFiles: CoroutineCollection<Document> = database.getCollection("personal_files")
+    val fileCleanup: CoroutineCollection<Document> = database.getCollection("file_cleanup")
+    val devices: CoroutineCollection<Document> = database.getCollection("notification_devices")
+    val notificationOutbox: CoroutineCollection<Document> = database.getCollection("notification_outbox")
 
     suspend fun ping() {
         checkNotNull(database.runCommand<Document>(Document("ping", 1)))
@@ -86,13 +95,27 @@ object MongoClientProvider {
         requests.ensureIndex(Indexes.ascending("groupId", "senderId", "receiverId", "status"))
         inviteMessages.ensureIndex(Indexes.ascending("key"), IndexOptions().unique(true))
         recoveryLimits.ensureIndex(Indexes.ascending("expiresAt"), IndexOptions().expireAfter(0, TimeUnit.SECONDS))
+        for (collection in listOf(archives, archiveRecords, recoveryJobs)) {
+            collection.ensureIndex(Indexes.ascending("expiresAt"), IndexOptions().expireAfter(0, TimeUnit.SECONDS))
+        }
+        for (collection in listOf(archives, recovered)) {
+            collection.ensureIndex(Indexes.compoundIndex(Indexes.ascending("ownerId"), Indexes.descending("createdAt", "_id")))
+        }
+        for (collection in listOf(archiveRecords, recoveredRecords)) {
+            collection.ensureIndex(Indexes.ascending("snapshotId", "kind", "_id"))
+            collection.ensureIndex(Indexes.compoundIndex(Indexes.ascending("snapshotId", "kind"), Indexes.descending("timestamp", "_id")))
+            collection.ensureIndex(Indexes.ascending("ownerId"))
+        }
+        recoveryJobs.ensureIndex(Indexes.ascending("ownerId"))
+        recoveryJobs.ensureIndex(Indexes.ascending("status", "dueAt"))
+        personalFiles.ensureIndex(Indexes.ascending("ownerId"))
         privacyRequests.ensureIndex(Indexes.ascending("ownerId", "type"),
             IndexOptions().unique(true).partialFilterExpression(Filters.eq("status", "pending")))
     }
 
     suspend fun <T> transaction(operation: suspend (ClientSession) -> T): T =
         client.startSession().use { session ->
-            repeat(3) { attempt ->
+            repeat(8) { attempt ->
                 session.startTransaction()
                 try {
                     val result = operation(session)
@@ -104,11 +127,12 @@ object MongoClientProvider {
                             runCatching { session.abortTransaction().awaitFirstOrNull() }
                         }
                     }
-                    if (attempt == 2 || error !is MongoException ||
+                    if (attempt == 7 || error !is MongoException ||
                         !error.hasErrorLabel(MongoException.TRANSIENT_TRANSACTION_ERROR_LABEL) ||
                         error.hasErrorLabel(MongoException.UNKNOWN_TRANSACTION_COMMIT_RESULT_LABEL)
                     ) throw error
-                    delay((attempt + 1) * 10L)
+                    // Large archival transactions need room to finish before a competing retry.
+                    delay((25L shl attempt).coerceAtMost(1_000L) + kotlin.random.Random.nextLong(25))
                 }
             }
             error("MongoDB transaction exceeded its retry limit")

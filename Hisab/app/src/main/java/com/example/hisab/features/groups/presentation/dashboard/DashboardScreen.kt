@@ -13,6 +13,12 @@ import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.example.hisab.ui.components.HisabAlert
+import com.example.hisab.ui.components.AlertKind
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,7 +54,12 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var deleting by remember { mutableStateOf<HisabGroup?>(null) }
     FeedbackEffect(uiState.actionError, FeedbackKind.ERROR, viewModel::clearActionError)
+    FeedbackEffect(uiState.successMessage, FeedbackKind.SUCCESS, viewModel::clearSuccess)
+    deleting?.let { group -> HisabAlert(AlertKind.CONFIRM, "Delete ${group.name}?",
+        "This removes the Hisab from your list and saves a private recovery copy for two months. Other members keep their shared records. Recover your copy under Settings → Privacy and data.",
+        onDismiss = { deleting = null }, confirmLabel = "Delete Hisab", onConfirm = { viewModel.deleteGroup(group.id); deleting = null }, dismissLabel = "Cancel") }
     LaunchedEffect(viewModel) {
         // The view model loads on first entry. Refresh a retained dashboard when returning.
         if (viewModel.uiState.value.hasLoaded) viewModel.refreshGroups(userInitiated = false)
@@ -124,7 +135,7 @@ fun DashboardScreen(
                                 }
                             }
                             items(uiState.groups, key = { it.id }) { group ->
-                                HisabGroupItem(group) { onGroupClick(group.id) }
+                                HisabGroupItem(group, onDelete = { deleting = group }) { onGroupClick(group.id) }
                             }
                             item(key = "groups-page-footer") {
                                 PageFooter(uiState.nextCursor, uiState.isLoadingMore || uiState.isLoading, uiState.pageFailure, viewModel::loadNextPage)
@@ -157,7 +168,7 @@ private fun EmptyHisabs(onCreate: () -> Unit) {
 }
 
 @Composable
-private fun HisabGroupItem(group: HisabGroup, onClick: () -> Unit) {
+private fun HisabGroupItem(group: HisabGroup, onDelete: () -> Unit, onClick: () -> Unit) {
     OutlinedCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -179,7 +190,7 @@ private fun HisabGroupItem(group: HisabGroup, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+            IconButton(onClick = onDelete) { Icon(Icons.Default.DeleteOutline, contentDescription = "Delete ${group.name}") }
         }
     }
 }

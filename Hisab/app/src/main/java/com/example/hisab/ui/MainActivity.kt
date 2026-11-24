@@ -181,7 +181,7 @@ fun HisabNavHost(startDest: String) {
         }
 
         composable("privacy_data") {
-            PrivacyDataScreen(privacyViewModel, onBack = { navController.popBackStack() },
+            PrivacyDataScreen(onBack = { navController.popBackStack() },
                 onPolicy = { navController.navigate("privacy_policy") })
         }
 
