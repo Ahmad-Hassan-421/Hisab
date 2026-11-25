@@ -87,6 +87,8 @@ object MongoClientProvider {
         groups.ensureIndex(Indexes.ascending("members"))
         groups.ensureIndex(Indexes.compoundIndex(Indexes.ascending("members"), Indexes.descending("createdAt", "_id")))
         entries.ensureIndex(Indexes.ascending("groupId"))
+        entries.ensureIndex(Indexes.ascending("debtorId", "groupId"))
+        entries.ensureIndex(Indexes.ascending("creditorId", "groupId"))
         entries.ensureIndex(Indexes.compoundIndex(Indexes.ascending("groupId"), Indexes.descending("timestamp", "_id")))
         entries.ensureIndex(Indexes.compoundIndex(Indexes.ascending("groupId", "type"), Indexes.descending("timestamp", "_id")))
         entries.ensureIndex(Indexes.compoundIndex(Indexes.ascending("groupId", "debtorId", "creditorId"), Indexes.descending("timestamp", "_id")))

@@ -167,6 +167,30 @@ def main():
     api(f"/v2/entries/page?groupId={group_id}", outsider["token"], status=403)
     api(f"/v2/groups/{group_id}/overview", outsider["token"], status=403)
     print("PASS 5,147 history records: complete unique pages, payment filter and exact/legacy balance parity", flush=True)
+    own = [value if pair[0] == actor else -value for pair, value in expected.items() if actor in pair]
+    debt = sum((value for value in own if value > 0), Decimal(0))
+    receive = -sum((value for value in own if value < 0), Decimal(0))
+    summary = api("/v2/dashboard/summary", token)
+    assert Decimal(summary["totalDebt"]) == debt and Decimal(summary["totalReceive"]) == receive
+    assert summary["groupCount"] == 1239
+    # Opposing obligations in different ledgers must not cancel one another.
+    for target, debtor, creditor in ((groups[5]["_id"], actor, member_ids[0]), (groups[6]["_id"], member_ids[0], actor)):
+        fixture("hisabGroupDocument", update=({"_id": target}, {"$set": {"members": [actor, member_ids[0]]}}))
+        fixture("hisabEntryDocument", [{"_id": str(uuid.uuid4()), "groupId": target, "debtorId": debtor,
+            "creditorId": creditor, "amount": 10.0, "type": "EXPENSE", "description": "Separate ledger fixture", "timestamp": now}])
+    left = api("/groups", token, {"name": "Former membership fixture", "members": [actor]}, 201)
+    invitation = api("/requests", token, {"groupId": left["id"], "receiverUniqueId": outsider["user"]["uniqueId"]}, 201)
+    api("/requests/"+invitation["id"], outsider["token"], {"status": "accepted"}, method="PATCH")
+    api("/entries", token, {"groupId": left["id"], "debtorId": actor, "creditorId": outsider["user"]["id"],
+        "amount": 321.123, "description": "Retained former-member balance", "clientEntryId": str(uuid.uuid4()), "type": "EXPENSE"}, 201)
+    api("/groups/"+left["id"]+"/leave", token, {}, method="POST")
+    summary = api("/v2/dashboard/summary", token)
+    assert Decimal(summary["totalDebt"]) == debt+10 and Decimal(summary["totalReceive"]) == receive+10
+    assert summary["groupCount"] == 1239
+    outsider_summary = api("/v2/dashboard/summary", outsider["token"])
+    assert Decimal(outsider_summary["totalReceive"]) == Decimal("321.123")
+    api("/v2/dashboard/summary", status=401)
+    print("PASS complete dashboard totals, legacy rounding, separate-ledger obligations and former-membership exclusion", flush=True)
     payload = {"groupId": group_id, "debtorId": actor, "creditorId": member_ids[0], "amount": 0.001,
                "description": "Bounded batch fixture", "type": "EXPENSE"}
     batch = [{**payload, "clientEntryId": str(uuid.uuid4())} for _ in range(1000)]

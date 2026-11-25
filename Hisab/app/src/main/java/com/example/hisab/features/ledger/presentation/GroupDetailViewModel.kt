@@ -224,8 +224,8 @@ class GroupDetailViewModel @Inject constructor(
                 user = user,
                 totalDebt = debts.values.sumOf { it },
                 totalReceive = receives.values.sumOf { -it },
-                debtBreakdown = debts.map { (id, amount) -> DebtDetail(id, names[id] ?: "Unknown", amount) },
-                receiveBreakdown = receives.map { (id, amount) -> DebtDetail(id, names[id] ?: "Unknown", -amount) }
+                debtBreakdown = debts.map { (id, amount) -> DebtDetail(id, names[id] ?: if (id.startsWith("deleted-")) "Deleted account" else "Former member", amount) },
+                receiveBreakdown = receives.map { (id, amount) -> DebtDetail(id, names[id] ?: if (id.startsWith("deleted-")) "Deleted account" else "Former member", -amount) }
             )
         }
     }

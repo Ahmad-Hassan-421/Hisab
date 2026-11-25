@@ -14,8 +14,8 @@ Work proceeds on `codex/hisab-v1.2.1`. Do not publish the stable tag or apply pr
 | 3 | Shared feedback and confirmation components | Complete |
 | 4 | Reusable skeletons, loading, empty/error/retry behavior | Complete |
 | 5 | Startup/session/consent navigation coordination | Complete |
-| 6 | Settings redesign and visible version presentation | In progress |
-| 7 | Home and Hisab detail presentation | Pending |
+| 6 | Settings redesign and visible version presentation | Complete |
+| 7 | Home and Hisab detail presentation | In progress |
 | 8 | Shared/member pictures, durable storage and account-aware image caching | Pending |
 | 9 | Multi-device push registration, durable event delivery, preferences and deep links | Pending implementation; configuration located, delivery unverified |
 | 10 | Shared automatic/manual/push update flow and release metadata | Pending |
@@ -98,3 +98,13 @@ Reorganized Settings into account/profile, preferences, and lower application/su
 The first frame now uses the existing persisted theme mirror rather than briefly drawing Light before DataStore emits. Preference read failures fall back safely, theme writes are coalesced and reported, and the profile's theme write now sits inside its existing error handler. Updated recovery/deletion FAQ answers and the existing About device test to require the public version label and reject the build label. Detailed in-app push preferences are added in phase 9; the current notification row opens actual Android settings rather than a placeholder.
 
 Final GitHub validation is pending before completing this phase.
+
+Phase 6 final verification: commit e49516c passed all three GitHub jobs, including the About version/hidden-build device assertion. No stable release or production deployment has occurred.
+
+## Phase 7 implementation; verification pending
+
+Added an authenticated, no-store Home summary that streams reduced actor/counterparty balances across all active Hisabs. It uses the same exact/legacy rounding helper as the group ledger. Groups remain separate when totaling debts and receivables, and former-membership ledgers are excluded. Added debtor/creditor lookup indexes; neither history pages nor loaded group-card counts determine money totals. Summary refresh/error state is independent of list paging, retains last-known values on failure, and clears on account changes.
+
+Refined Home cards, hierarchy, summary presentation and primary actions. Details now have a clearer group header, authoritative record count and personal position card; member debt/receivable metrics share the same design. Kept keyed virtualization and paged history. Member selection is disabled during financial submissions. Missing legacy timestamps display Date unavailable instead of a fabricated January 1970 date; missing deleted identities are labeled as such.
+
+Added summary/paging/failure/account-scope unit coverage, shared monetary rounding/non-finite aggregate tests, currency/date display tests, and independent HTTP Decimal checks for complete Home totals, opposing obligations in different ledgers, former-member exclusion and authentication. Final GitHub checks are pending before completion. Group pictures are wired to this header and the Home cards in phase 8.

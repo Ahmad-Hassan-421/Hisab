@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import com.example.hisab.data.remote.api.CursorPage
 
 interface GroupRepository {
+    suspend fun getSummary(): DashboardSummary? = null
     suspend fun getGroupsForUser(userId: String): List<HisabGroup>
     suspend fun getGroupsPage(userId: String, cursor: String? = null): CursorPage<HisabGroup> =
         CursorPage(getGroupsForUser(userId))

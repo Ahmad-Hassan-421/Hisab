@@ -79,7 +79,7 @@ fun AddAmountDialog(
                         Text("Select Debtor:")
                         val otherMembers = members.filter { it.user.id != currentUserId }
                         LedgerMemberPicker(otherMembers, selectedUserId, memberCursor, loadingMembers,
-                            memberFailure, onLoadMoreMembers) { selectedUserId = it }
+                            memberFailure, onLoadMoreMembers, enabled = !isSaving) { selectedUserId = it }
                     }
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

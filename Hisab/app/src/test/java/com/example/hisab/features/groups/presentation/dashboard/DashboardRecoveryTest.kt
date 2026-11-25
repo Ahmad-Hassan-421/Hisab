@@ -27,6 +27,39 @@ import java.net.ConnectException
 @OptIn(ExperimentalCoroutinesApi::class)
 class DashboardRecoveryTest {
     @Test
+    fun completeSummaryIsIndependentOfLoadedPagesAndARefreshFailureDoesNotInventZero() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val amount = com.example.hisab.features.groups.domain.DashboardSummary(
+            java.math.BigDecimal("1234.567"), java.math.BigDecimal("89.010"), 3000, 100)
+        var summary = CompletableDeferred(amount)
+        var calls = 0
+        val repository = object : GroupRepository by TestGroups() {
+            override suspend fun getSummary(): com.example.hisab.features.groups.domain.DashboardSummary {
+                calls++; return summary.await()
+            }
+            override suspend fun getGroupsPage(userId: String, cursor: String?) =
+                com.example.hisab.data.remote.api.CursorPage(listOf(HisabGroup(id = cursor ?: "first")), if (cursor == null) "tail" else null)
+        }
+        val session = SessionManager().apply { setSession("member", "user") }
+        val viewModel = DashboardViewModel(repository, session, FailureReporter({ true }, {}))
+        try {
+            runCurrent()
+            assertEquals(1, viewModel.uiState.value.groups.size)
+            assertEquals(amount, viewModel.uiState.value.summary)
+            viewModel.loadNextPage(); runCurrent()
+            assertEquals(2, viewModel.uiState.value.groups.size)
+            assertEquals(1, calls)
+            assertEquals(amount, viewModel.uiState.value.summary)
+            summary = CompletableDeferred()
+            viewModel.refreshSummary(); runCurrent()
+            summary.completeExceptionally(ConnectException()); runCurrent()
+            assertEquals(amount, viewModel.uiState.value.summary)
+            assertNotNull(viewModel.uiState.value.summaryFailure)
+            session.clear(); runCurrent()
+            assertNull(viewModel.uiState.value.summary)
+        } finally { viewModel.cancel(); Dispatchers.resetMain() }
+    }
+    @Test
     fun firstLoadDoesNotReportAnEmptyAccountUntilTheServerResponds() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val repository = TestGroups().apply { next = CompletableDeferred() }

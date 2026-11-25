@@ -195,4 +195,4 @@ fun AccountDataScreen(onBack: () -> Unit, onPolicy: () -> Unit, viewModel: Accou
             visualTransformation = PasswordVisualTransformation(), enabled = !state.busy, modifier = Modifier.fillMaxWidth()) }) }
 }
 
-private fun displayDate(value: Long) = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(value))
+private fun displayDate(value: Long) = if (value <= 0) "Date unavailable" else DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(value))

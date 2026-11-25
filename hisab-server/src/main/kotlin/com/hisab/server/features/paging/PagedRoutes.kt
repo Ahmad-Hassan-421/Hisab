@@ -3,6 +3,7 @@ package com.hisab.server.features.paging
 import com.hisab.server.database.MongoClientProvider
 import com.hisab.server.database.PairBalance
 import com.hisab.server.database.groupPairBalances
+import com.hisab.server.database.dashboardSummary
 import com.hisab.server.features.accounts.UserResponse
 import com.hisab.server.features.accounts.toResponse
 import com.hisab.server.features.groups.requireGroupMember
@@ -59,6 +60,10 @@ fun Route.pagedRoutes() {
     authenticate("auth-jwt") {
         route("/v2") {
             install(PrivacyAccess)
+            get("/dashboard/summary") {
+                call.response.header(HttpHeaders.CacheControl, "no-store")
+                call.respond(dashboardSummary(call.authenticatedUserId))
+            }
             get("/groups/page") {
                 val actor = call.authenticatedUserId
                 val page = call.pageQuery("groups:$actor")

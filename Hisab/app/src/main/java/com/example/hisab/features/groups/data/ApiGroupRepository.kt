@@ -11,6 +11,16 @@ import javax.inject.Singleton
 class ApiGroupRepository @Inject constructor(
     private val api: HisabApiService
 ) : GroupRepository {
+    override suspend fun getSummary(): com.example.hisab.features.groups.domain.DashboardSummary {
+        val value = api.getDashboardSummary()
+        val debt = value.totalDebt.toBigDecimalOrNull()
+        val receive = value.totalReceive.toBigDecimalOrNull()
+        if (debt == null || receive == null || debt.signum() < 0 || receive.signum() < 0 ||
+            debt.stripTrailingZeros().scale() > 3 || receive.stripTrailingZeros().scale() > 3 || value.groupCount < 0) {
+            throw com.google.gson.JsonParseException("Invalid balance summary")
+        }
+        return com.example.hisab.features.groups.domain.DashboardSummary(debt, receive, value.groupCount, value.generatedAt)
+    }
     override suspend fun getGroupsForUser(userId: String): List<HisabGroup> {
         return api.getGroupsForUser(userId).map { it.toDomain() }
     }

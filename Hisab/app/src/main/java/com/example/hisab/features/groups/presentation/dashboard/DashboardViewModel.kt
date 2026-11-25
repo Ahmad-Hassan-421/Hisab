@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.hisab.features.groups.domain.HisabGroup
 import com.example.hisab.features.groups.domain.GroupRepository
+import com.example.hisab.features.groups.domain.DashboardSummary
 import com.example.hisab.util.SessionManager
 import com.example.hisab.util.AppFailure
 import com.example.hisab.util.FailureReporter
@@ -31,7 +32,10 @@ data class DashboardUiState(
     val isLoadingMore: Boolean = false,
     val pageFailure: AppFailure? = null,
     val deletingIds: Set<String> = emptySet(),
-    val successMessage: String? = null
+    val successMessage: String? = null,
+    val summary: DashboardSummary? = null,
+    val summaryLoading: Boolean = false,
+    val summaryFailure: AppFailure? = null
 )
 
 @HiltViewModel
@@ -44,6 +48,7 @@ class DashboardViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
     private var refreshJob: Job? = null
+    private var summaryJob: Job? = null
 
     init {
         startPollingGroups()
@@ -53,6 +58,7 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             sessionManager.currentUserId.collectLatest { userId ->
                 refreshJob?.cancel()
+                summaryJob?.cancel()
                 _uiState.value = DashboardUiState()
                 if (userId == null) return@collectLatest
                 while (isActive) {
@@ -67,6 +73,7 @@ class DashboardViewModel @Inject constructor(
     fun refreshGroups(userInitiated: Boolean = true) {
         val userId = sessionManager.currentUserId.value ?: return
         if (refreshJob?.isActive == true) return
+        refreshSummary()
         if (userInitiated && _uiState.value.hasLoaded) _uiState.update { it.copy(isRefreshing = true) }
         refreshJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -110,6 +117,25 @@ class DashboardViewModel @Inject constructor(
                 if (sessionManager.currentUserId.value == userId) _uiState.update {
                     it.copy(isLoadingMore = false, pageFailure = failure)
                 }
+            }
+        }
+    }
+
+    fun refreshSummary() {
+        val actor = sessionManager.currentUserId.value ?: return
+        if (summaryJob?.isActive == true) return
+        _uiState.update { it.copy(summaryLoading = true) }
+        summaryJob = viewModelScope.launch {
+            try {
+                val summary = groupRepository.getSummary()
+                if (sessionManager.currentUserId.value == actor) _uiState.update { it.copy(summary = summary, summaryFailure = null) }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) {
+                if (sessionManager.currentUserId.value == actor) _uiState.update {
+                    it.copy(summaryFailure = failures.report("Load balance summary", error))
+                }
+            } finally {
+                if (sessionManager.currentUserId.value == actor) _uiState.update { it.copy(summaryLoading = false) }
             }
         }
     }

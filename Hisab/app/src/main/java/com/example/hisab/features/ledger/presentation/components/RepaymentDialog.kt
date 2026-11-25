@@ -95,7 +95,7 @@ fun RepaymentDialog(
                         }
                     }
                 } else {
-                    LedgerMemberPicker(counterparties, selectedUserId) { selectedUserId = it }
+                    LedgerMemberPicker(counterparties, selectedUserId, enabled = !isSaving) { selectedUserId = it }
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         enabled = !isSaving,

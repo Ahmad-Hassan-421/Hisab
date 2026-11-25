@@ -12,6 +12,9 @@ import com.example.hisab.ui.components.FeedbackKind
 import com.example.hisab.ui.components.LocalHisabFeedback
 import com.example.hisab.ui.components.RefreshFailure
 import com.example.hisab.ui.components.PageFooter
+import com.example.hisab.ui.components.BalancePositionCard
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 
 import androidx.compose.foundation.layout.*
@@ -292,12 +295,7 @@ fun GroupDetailScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                colors = TopAppBarDefaults.topAppBarColors()
             )
         }
     ) { padding ->
@@ -348,12 +346,24 @@ fun GroupDetailScreen(
                 } else {
                     if (failure != null) item { RefreshFailure(failure, viewModel::loadData, !uiState.isLoading) }
                     item {
-                        Text(group.name, Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
-                        Text(
-                            if (group.members.size == 1) "1 active member" else "${group.members.size} active members",
-                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        OutlinedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+                            Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                                    Icon(Icons.Default.Group, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(64.dp).padding(16.dp))
+                                }
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(group.name, Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
+                                    Text("${group.members.size} active members · ${uiState.entryCount} records",
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
                     }
+                    uiState.members.firstOrNull { it.user.id == uiState.currentUserId }?.let { self -> item {
+                        BalancePositionCard("Your position in this Hisab", "Based on the complete shared ledger",
+                            self.totalDebt, self.totalReceive)
+                    } }
                     item {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(enabled = canWrite, onClick = {

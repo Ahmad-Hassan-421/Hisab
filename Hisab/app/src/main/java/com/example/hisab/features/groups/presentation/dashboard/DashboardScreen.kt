@@ -5,6 +5,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.animateContentSize
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.hisab.ui.components.BalancePositionCard
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountCircle
@@ -112,18 +115,20 @@ fun DashboardScreen(
                         if (!uiState.hasLoaded) {
                             item { ListSkeleton("Loading your Hisabs", kind = com.example.hisab.ui.components.SkeletonKind.HISABS) }
                         } else if (uiState.groups.isEmpty()) {
+                            item { HomeSummary(uiState, viewModel::refreshSummary) }
                             item { EmptyHisabs(onCreateHisab) }
                         } else {
                             item {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("A clear view of what’s shared", style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(
                                         "Your Hisabs",
                                         modifier = Modifier.semantics { heading() },
                                         style = MaterialTheme.typography.headlineSmall
                                     )
-                                    val count = uiState.groups.size
                                     Text(
-                                        if (uiState.nextCursor != null) "$count groups loaded" else if (count == 1) "1 group" else "$count groups",
+                                        uiState.summary?.groupCount?.let { if (it == 1L) "1 shared ledger" else "$it shared ledgers" } ?: "Your shared ledgers",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -134,6 +139,7 @@ fun DashboardScreen(
                                     }
                                 }
                             }
+                            item { HomeSummary(uiState, viewModel::refreshSummary) }
                             items(uiState.groups, key = { it.id }) { group ->
                                 HisabGroupItem(group, onDelete = { deleting = group }) { onGroupClick(group.id) }
                             }
@@ -171,8 +177,8 @@ private fun EmptyHisabs(onCreate: () -> Unit) {
 private fun HisabGroupItem(group: HisabGroup, onDelete: () -> Unit, onClick: () -> Unit) {
     OutlinedCard(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().animateContentSize(),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
@@ -182,15 +188,37 @@ private fun HisabGroupItem(group: HisabGroup, onDelete: () -> Unit, onClick: () 
         ) {
             GroupIcon()
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(group.name, style = MaterialTheme.typography.titleMedium)
+                Text(group.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 val count = group.memberCount
                 Text(
                     if (count == 1) "1 member" else "$count members",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Text("Open ledger", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
             IconButton(onClick = onDelete) { Icon(Icons.Default.DeleteOutline, contentDescription = "Delete ${group.name}") }
+        }
+    }
+}
+
+@Composable
+private fun HomeSummary(state: DashboardUiState, onRetry: () -> Unit) {
+    val summary = state.summary
+    when {
+        summary != null -> {
+            BalancePositionCard(if (state.summaryFailure == null) "Your overall position" else "Your last known position", "Across ${summary.groupCount} active Hisabs",
+                summary.totalDebt, summary.totalReceive,
+                footer = "Totals include every active Hisab. Balances stay separate between Hisabs.")
+            state.summaryFailure?.let { RefreshFailure(it, onRetry, !state.summaryLoading) }
+        }
+        state.summaryLoading -> ListSkeleton("Loading your overall balances", kind = com.example.hisab.ui.components.SkeletonKind.BALANCES, rows = 1)
+        state.summaryFailure != null -> LoadFailure("Couldn't load your balance summary", state.summaryFailure, onRetry)
+        else -> OutlinedCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Your balance summary isn't available yet.")
+                TextButton(onClick = onRetry) { Text("Retry summary") }
+            }
         }
     }
 }

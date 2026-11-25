@@ -21,6 +21,8 @@ import retrofit2.Response
 import retrofit2.http.*
 
 interface HisabApiService {
+    @GET("v2/dashboard/summary")
+    suspend fun getDashboardSummary(): DashboardSummaryDto
     @GET("account/data/archives")
     suspend fun getArchives(@Query("cursor") cursor: String?): CursorPage<ArchiveCard>
     @GET("account/data/recovered")

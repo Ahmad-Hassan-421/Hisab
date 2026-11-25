@@ -28,7 +28,7 @@ fun MemberBalanceCard(
 ) {
     val debtColor = MaterialTheme.colorScheme.error
     val receiveColor = MaterialTheme.colorScheme.primary
-    OutlinedCard(Modifier.fillMaxWidth()) {
+    OutlinedCard(Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 HisabAvatar(balance.user.profilePicUrl, Modifier.size(40.dp))
@@ -50,11 +50,17 @@ fun MemberBalanceCard(
                     )
                 }
             }
-            if (balance.totalDebt.signum() > 0) {
-                Text("Owes · ${formatLedgerAmount(balance.totalDebt)}", style = MaterialTheme.typography.titleSmall, color = debtColor)
-            }
-            if (balance.totalReceive.signum() > 0) {
-                Text("To receive · ${formatLedgerAmount(balance.totalReceive)}", style = MaterialTheme.typography.titleSmall, color = receiveColor)
+            if (balance.totalDebt.signum() > 0 || balance.totalReceive.signum() > 0) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Owes", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(formatLedgerAmount(balance.totalDebt), style = MaterialTheme.typography.titleSmall, color = debtColor)
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text("To receive", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(formatLedgerAmount(balance.totalReceive), style = MaterialTheme.typography.titleSmall, color = receiveColor)
+                    }
+                }
             }
             if (balance.totalDebt.signum() == 0 && balance.totalReceive.signum() == 0) {
                 Text("Settled", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)

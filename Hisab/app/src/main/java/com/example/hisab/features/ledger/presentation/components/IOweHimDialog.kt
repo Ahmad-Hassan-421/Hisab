@@ -63,7 +63,7 @@ fun IOweHimDialog(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 LedgerMemberPicker(otherMembers, selectedUserId, memberCursor, loadingMembers,
-                    memberFailure, onLoadMoreMembers) { selectedUserId = it }
+                    memberFailure, onLoadMoreMembers, enabled = !isLoading) { selectedUserId = it }
 
                 Spacer(modifier = Modifier.height(12.dp))
 

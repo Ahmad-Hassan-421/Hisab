@@ -18,4 +18,4 @@ internal fun formatLedgerAmount(amount: BigDecimal, locale: Locale = Locale.getD
 }
 
 internal fun formatLedgerDate(timestamp: Long, locale: Locale = Locale.getDefault()): String =
-    DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale).format(Date(timestamp))
+    if (timestamp <= 0) "Date unavailable" else DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale).format(Date(timestamp))

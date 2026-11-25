@@ -25,14 +25,15 @@ internal fun LedgerMemberPicker(
     loading: Boolean = false,
     failure: AppFailure? = null,
     onLoadMore: () -> Unit = {},
+    enabled: Boolean = true,
     onSelect: (String) -> Unit
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val selected = members.firstOrNull { it.user.id == selectedId }
-    OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+    OutlinedButton(onClick = { expanded = true }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
         Text(selected?.user?.name ?: "Select a member")
     }
-    if (expanded) ModalBottomSheet(onDismissRequest = { expanded = false }) {
+    if (expanded && enabled) ModalBottomSheet(onDismissRequest = { expanded = false }) {
         Text("Select a member", Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
             style = MaterialTheme.typography.titleLarge)
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp).selectableGroup(),
