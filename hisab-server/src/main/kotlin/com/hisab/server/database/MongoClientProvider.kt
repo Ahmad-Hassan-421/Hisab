@@ -95,6 +95,7 @@ object MongoClientProvider {
         entries.ensureIndex(Indexes.compoundIndex(Indexes.ascending("groupId", "type"), Indexes.descending("timestamp", "_id")))
         entries.ensureIndex(Indexes.compoundIndex(Indexes.ascending("groupId", "debtorId", "creditorId"), Indexes.descending("timestamp", "_id")))
         requests.ensureIndex(Indexes.ascending("receiverId", "status"))
+        requests.ensureIndex(Indexes.ascending("receiverId", "status", "senderId"))
         requests.ensureIndex(Indexes.compoundIndex(Indexes.ascending("receiverId", "status"), Indexes.descending("createdAt", "_id")))
         requests.ensureIndex(Indexes.ascending("groupId", "senderId", "receiverId", "status"))
         inviteMessages.ensureIndex(Indexes.ascending("key"), IndexOptions().unique(true))

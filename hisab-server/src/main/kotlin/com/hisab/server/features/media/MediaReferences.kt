@@ -48,7 +48,8 @@ internal suspend fun allowedMedia(actor: String, ids: List<String>): Set<String>
                 visibleProfiles.addAll(row.getList("members", String::class.java).orEmpty())
             }
         DB.requestDirectory.find(and(eq("receiverId", actor), eq("status", "pending"), `in`("senderId", profiles)))
-            .projection(Document("senderId", 1)).toFlow().collect { visibleProfiles.add(it.getString("senderId")) }
+            .projection(Document("senderId", 1)).maxTime(3, java.util.concurrent.TimeUnit.SECONDS)
+            .toFlow().collect { visibleProfiles.add(it.getString("senderId")) }
     }
     return refs.filter { when (it.getString("kind")) {
         "profile" -> it.getString("subjectId") in visibleProfiles

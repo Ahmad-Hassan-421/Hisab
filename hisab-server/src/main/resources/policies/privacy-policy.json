@@ -1,7 +1,7 @@
 {
-  "version": "2026-11-24",
-  "acknowledgmentVersion": "2026-11-24",
-  "effectiveDate": "24 November 2026",
+  "version": "2026-11-25",
+  "acknowledgmentVersion": "2026-11-25",
+  "effectiveDate": "25 November 2026",
   "sections": [
     {
       "title": "About Hisab",
@@ -12,8 +12,8 @@
       "body": "When you register, Hisab collects your name, email address and password. The service stores a password hash, an internal account ID, a shareable Hisab ID, your registration date, and preferences such as your theme. Verification and password recovery use your registered inbox where eligible. Brevo delivers account emails. Recovery codes expire after 20 minutes, and the app server stores a digest to verify each code. A successful password reset revokes previous sessions."
     },
     {
-      "title": "Profile pictures",
-      "body": "New profile pictures are cropped and saved privately on the device for the signed-in account. Choosing a photo does not automatically upload it. Photos uploaded by earlier versions can remain on the server and may be displayed when the account is shown to another user. A reset of the local picture changes its display on that device."
+      "title": "Profile and shared Hisab pictures",
+      "body": "When you choose and save a profile picture, Hisab crops and compresses it and uploads it to MongoDB Atlas. Members of your shared Hisabs and recipients of your pending invitations can view it. Existing pictures saved only on a phone are uploaded only when you choose to sync or replace them. Any active member can change or remove a shared Hisab picture. Private historical copies can retain the pictures captured when a Hisab was deleted; recovered copies keep those references independently until deleted. Permanent account deletion removes your personal profile images. Shared group pictures belong to the shared ledger and can remain for other members."
     },
     {
       "title": "Shared ledgers and invitations",
@@ -21,7 +21,7 @@
     },
     {
       "title": "Storage and service providers",
-      "body": "Hisab stores account information, group data, invitations, agreement records, and data requests in MongoDB Atlas. The service runs on Render and can store previously uploaded photos on a server volume. Android keeps a local copy of previously loaded records, theme settings, private photos, and encrypted sign-in details. GitHub distributes app updates and hosts the public support tracker. These providers process information needed for their respective services."
+      "body": "Hisab stores account information, group data, invitations, agreement records, data requests and new uploaded images in MongoDB Atlas. The service runs on Render; older uploaded files may remain on its server filesystem. Android keeps previously loaded records, theme settings, encrypted sign-in details and a bounded private image cache for the signed-in account. Cached images are cleared when signing out, switching accounts or deleting the account; known revoked access is rechecked while online. Offline cached information cannot reflect access changes until the device reconnects. Superseded image versions without remaining references are eligible for background removal after a one-day grace period. GitHub distributes app updates and hosts the public support tracker. These providers process information needed for their respective services."
     },
     {
       "title": "Access and security",

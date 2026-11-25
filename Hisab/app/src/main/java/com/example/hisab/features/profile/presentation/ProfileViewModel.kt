@@ -91,18 +91,12 @@ class ProfileViewModel @Inject constructor(
                 }
                 if (sessionManager.currentUserId.value != userId) return@launch
                 userRepository.getCurrentUser(userId).first()?.let(::showProfile)
-                var user = userRepository.fetchRemoteUser(userId, allowCached = false)
+                val user = userRepository.fetchRemoteUser(userId, allowCached = false)
                 if (sessionManager.currentUserId.value != userId) return@launch
                 if (photoWrite === writeAtStart && !_uiState.value.isUploading && user != null) {
-                    // Migrate an existing device-only crop once; an already-synchronized remote version wins.
-                    if (photo is LocalProfilePhoto.Selected && !user.profilePicUrl.startsWith("/media/")) {
-                        try {
-                            userRepository.uploadProfilePicture(Uri.fromFile(photo.file))
-                            user = userRepository.fetchRemoteUser(userId, allowCached = false)
-                            photos.erase(userId)
-                        } catch (cancelled: CancellationException) { throw cancelled }
-                        catch (_: Exception) { _uiState.update { it.copy(error = "Your saved picture hasn't synced. Choose it again when you're online.") } }
-                    } else photos.erase(userId)
+                    // The old feature promised device-only storage. Offer an explicit sync instead of uploading it silently.
+                    if (user.profilePicUrl.startsWith("/media/")) photos.erase(userId)
+                    _uiState.update { it.copy(localPhoto = if (user.profilePicUrl.startsWith("/media/")) LocalProfilePhoto.Unset else photo) }
                 }
                 if (sessionManager.currentUserId.value != userId) return@launch
                 if (user != null) showProfile(user)
@@ -180,6 +174,12 @@ class ProfileViewModel @Inject constructor(
         userRepository.uploadProfilePicture(uri)
     }
 
+    fun syncSavedPicture() {
+        val state = _uiState.value
+        val saved = state.localPhoto as? LocalProfilePhoto.Selected ?: return
+        state.accountId?.let { saveProfilePicture(it, Uri.fromFile(saved.file)) }
+    }
+
     fun removeProfilePicture() {
         val accountId = sessionManager.currentUserId.value ?: return
         changePhoto(accountId) {
@@ -193,8 +193,10 @@ class ProfileViewModel @Inject constructor(
 
         _uiState.update { it.copy(isUploading = true, error = null, successMessage = null) }
         photoWrite = viewModelScope.launch {
+            var confirmed = false
             try {
                 val path = change()
+                confirmed = true
                 if (sessionManager.currentUserId.value != accountId) return@launch
                 _uiState.update { it.copy(profilePicUrl = path, localPhoto = LocalProfilePhoto.Unset) }
                 photos.erase(accountId)
@@ -209,7 +211,8 @@ class ProfileViewModel @Inject constructor(
                     "Couldn’t read that crop. Choose a different picture."
                 } else {
                     failures.report("Save profile picture", e)
-                    "Couldn’t sync your picture. Check your connection and try again."
+                    if (confirmed) "Your picture changed, but profile refresh failed. Reload your profile."
+                    else "Couldn’t sync your picture. Check your connection and try again."
                 }
                 if (sessionManager.currentUserId.value != accountId) return@launch
                 _uiState.update {

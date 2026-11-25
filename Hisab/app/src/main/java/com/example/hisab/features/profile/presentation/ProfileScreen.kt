@@ -289,7 +289,7 @@ fun ProfileScreen(
             ) {
                 HisabAvatar(
                     url = uiState.profilePicUrl,
-                    localPhoto = uiState.localPhoto,
+                    localPhoto = LocalProfilePhoto.Unset,
                     description = "Profile picture",
                     modifier = Modifier
                         .size(120.dp)
@@ -311,8 +311,12 @@ fun ProfileScreen(
                     )
                 }
             }
-            if (uiState.localPhoto is LocalProfilePhoto.Selected ||
-                (uiState.localPhoto == LocalProfilePhoto.Unset && Constants.profileImageUrl(uiState.profilePicUrl) != null)) {
+            if (uiState.localPhoto is LocalProfilePhoto.Selected) {
+                Text("A picture is saved only on this phone. Sync it to share it with your Hisab members.",
+                    style = MaterialTheme.typography.bodySmall)
+                TextButton(enabled = !uiState.isUploading && !uiState.isSaving, onClick = viewModel::syncSavedPicture) { Text("Sync saved picture") }
+            }
+            if (uiState.localPhoto is LocalProfilePhoto.Selected || Constants.profileImageUrl(uiState.profilePicUrl) != null) {
                 TextButton(enabled = !uiState.isUploading && !uiState.isSaving, onClick = viewModel::removeProfilePicture) {
                     Text("Reset picture on this device")
                 }
