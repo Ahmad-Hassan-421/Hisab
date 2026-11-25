@@ -240,11 +240,13 @@ def main():
     status, second = request("POST", "/upload/profile-pic", b, upload, upload_type)
     check("each upload gets a distinct path", status == 200 and first != second)
     url = first.get("url", "") if isinstance(first, dict) else ""
-    portable = url.startswith(f"{public_origin}/static/uploads/")
+    portable = url.startswith("/media/")
     check("upload returns a portable path", portable)
     if portable:
-        status, downloaded = request("GET", url.removeprefix(public_origin))
-        check("profile image is served unchanged", status == 200 and downloaded == png)
+        status, downloaded = request("GET", url, a)
+        check("profile image is served as normalized JPEG", status == 200 and isinstance(downloaded, bytes) and downloaded.startswith(b"\xff\xd8"))
+        status, _ = request("GET", url)
+        check("profile image requires authentication", status == 401)
     if args.extended:
         non_image = upload.replace(png, b"this is not a valid image")
         status, _ = request("POST", "/upload/profile-pic", a, non_image, upload_type)

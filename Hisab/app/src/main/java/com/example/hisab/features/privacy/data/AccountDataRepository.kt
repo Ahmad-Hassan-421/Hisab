@@ -7,7 +7,7 @@ import com.example.hisab.features.profile.data.UserDto
 import javax.inject.Inject
 
 data class ArchiveCard(val id: String, val name: String, val deletedAt: Long, val expiresAt: Long?,
-    val recoveredAt: Long?, val recordCount: Long, val memberCount: Long, val status: String)
+    val recoveredAt: Long?, val recordCount: Long, val memberCount: Long, val status: String, val pictureUrl: String = "")
 data class RecoveryReceipt(val id: String, val name: String, val status: String, val dueAt: Long)
 data class HistoricalMember(val id: String, val name: String, val profilePicUrl: String)
 data class DeleteAccountInput(val accountId: String, val password: String)

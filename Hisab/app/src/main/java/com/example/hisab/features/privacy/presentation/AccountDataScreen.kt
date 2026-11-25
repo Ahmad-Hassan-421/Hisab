@@ -117,6 +117,7 @@ fun AccountDataScreen(onBack: () -> Unit, onPolicy: () -> Unit, viewModel: Accou
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("Recovered — Read Only", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium)
+                            HisabAvatar(state.selected?.pictureUrl, Modifier.size(64.dp), "Historical Hisab picture", group = true)
                             Text("A historical copy. New debts, payments and member changes are disabled.")
                             TextButton(onClick = { viewModel.open(if (state.panel == DataPanel.HISTORY) DataPanel.MEMBERS else DataPanel.HISTORY) }) {
                                 Text(if (state.panel == DataPanel.HISTORY) "View historical members" else "View transaction history")

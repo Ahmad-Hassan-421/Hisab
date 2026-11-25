@@ -33,6 +33,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -76,11 +80,20 @@ class MainActivity : ComponentActivity() {
     
     @Inject
     lateinit var themePreferencesManager: ThemePreferencesManager
+    @Inject lateinit var mediaStore: com.example.hisab.features.profile.data.MediaStore
 
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setTheme(R.style.Theme_Hisab)
+        lifecycleScope.launch {
+            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+                    mediaStore.revalidate()
+                    kotlinx.coroutines.delay(30_000)
+                }
+            }
+        }
 
         setContent {
             val themeMode by themePreferencesManager.themeMode.collectAsState(initial = remember { themePreferencesManager.cachedThemeMode() })
@@ -92,6 +105,7 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.SYSTEM -> systemInDarkTheme
             }
             
+            CompositionLocalProvider(com.example.hisab.ui.components.LocalMediaStore provides mediaStore) {
             HisabTheme(darkTheme = isDarkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -119,6 +133,7 @@ class MainActivity : ComponentActivity() {
                             sessionViewModel = sessionViewModel, privacyViewModel = privacyViewModel)
                     }
                 }
+            }
             }
         }
     }

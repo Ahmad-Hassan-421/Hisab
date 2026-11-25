@@ -2,6 +2,8 @@ package com.hisab.server.features.privacy
 
 import com.hisab.server.database.MongoClientProvider as DB
 import com.hisab.server.features.groups.lockGroupForMember
+import com.hisab.server.features.media.snapshotMediaReference
+import com.hisab.server.features.media.setMediaReference
 import com.hisab.server.models.UserDocument
 import com.hisab.server.plugins.RequestFailure
 import com.mongodb.client.model.Filters.*
@@ -67,17 +69,20 @@ internal suspend fun archiveGroup(actor: String, groupId: String) {
                 .projection(Document("_id", 1).append("name", 1).append("profilePicUrl", 1)).limit(256).toList()
             val byId = profiles.associateBy { it.getString("_id") }
             val rows = ids.map { member -> base("member", byId[member] ?: Document("_id", member).append("name", "Former member")) }
+            profiles.forEach { snapshotMediaReference(session, id, actor, it.getString("profilePicUrl").orEmpty(), expires) }
             if (rows.isNotEmpty()) DB.archiveRecords.insertMany(session, rows)
             memberCount += rows.size
         }
         DB.archives.insertOne(session, Document("_id", id).append("ownerId", actor).append("ownerEmail", owner.email)
             .append("originalGroupId", groupId).append("name", group.name).append("createdAt", now)
             .append("deletedAt", now).append("expiresAt", expires).append("recordCount", entries)
-            .append("memberCount", memberCount).append("status", "available"))
+            .append("memberCount", memberCount).append("status", "available").append("pictureUrl", group.pictureUrl))
+        snapshotMediaReference(session, id, actor, group.pictureUrl, expires)
         if (group.members.size == 1) {
             DB.entries.deleteMany(session, eq("groupId", groupId))
             DB.requests.deleteMany(session, eq("groupId", groupId))
             DB.groups.deleteOne(session, eq("_id", groupId))
+            setMediaReference(session, "group", groupId, "")
         } else {
             DB.groups.updateOne(session, eq("_id", groupId), Updates.combine(
                 Updates.pull("members", actor), Updates.addToSet("exMembers", actor)))
@@ -128,6 +133,11 @@ internal suspend fun deliverRecovery(id: String) = DB.transaction { session ->
     DB.recovered.insertOne(session, Document(source).apply {
         remove("expiresAt"); remove("ownerEmail"); put("status", "ready"); put("recoveredAt", now); put("createdAt", now)
     })
+    copyInPages(session, DB.mediaReferences, and(eq("kind", "archive"), eq("subjectId", id)), DB.mediaReferences) {
+        Document(it).apply {
+            put("_id", "recovered:$id:${it.getString("assetId")}"); put("kind", "recovered"); remove("expiresAt")
+        }
+    }
     DB.recoveryJobs.updateOne(session, eq("_id", id), Updates.combine(Updates.set("status", "ready"), Updates.set("completedAt", now)))
     DB.archives.updateOne(session, eq("_id", id), Updates.combine(Updates.set("status", "ready"), Updates.set("recoveredAt", now)))
 }
@@ -142,4 +152,5 @@ internal suspend fun deleteRecovered(actor: String, id: String) = DB.transaction
     val rows = and(eq("snapshotId", id), eq("ownerId", actor))
     DB.recoveredRecords.deleteMany(session, rows)
     DB.archiveRecords.deleteMany(session, rows)
+    DB.mediaReferences.deleteMany(session, and(eq("subjectId", id), eq("ownerId", actor)))
 }

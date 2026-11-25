@@ -10,7 +10,9 @@ object Constants {
 
     fun profileImageUrl(path: String?): String? {
         if (path.isNullOrBlank() || path == DEFAULT_GOOGLE_AVATAR_URL) return null
-        return if (path.startsWith("/static/")) {
+        return if (path.startsWith("/media/") && Regex("^/media/[a-f0-9-]{36}$").matches(path)) {
+            API_BASE_URL.toHttpUrl().resolve(path)?.toString()
+        } else if (path.startsWith("/static/")) {
             API_BASE_URL.toHttpUrl().resolve(path)?.takeIf {
                 it.encodedPath.startsWith("/static/") && it.encodedPath != "/static/default_profile.png"
             }?.toString()

@@ -4,6 +4,8 @@ import kotlinx.coroutines.flow.Flow
 import com.example.hisab.data.remote.api.CursorPage
 
 interface GroupRepository {
+    suspend fun pictures(groupId: String, members: List<String>): com.example.hisab.features.profile.data.GroupPictures? = null
+    suspend fun setPicture(groupId: String, uri: android.net.Uri?): String = throw UnsupportedOperationException("Picture changes unavailable")
     suspend fun getSummary(): DashboardSummary? = null
     suspend fun getGroupsForUser(userId: String): List<HisabGroup>
     suspend fun getGroupsPage(userId: String, cursor: String? = null): CursorPage<HisabGroup> =

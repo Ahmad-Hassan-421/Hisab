@@ -50,6 +50,8 @@ object MongoClientProvider {
     val fileCleanup: CoroutineCollection<Document> = database.getCollection("file_cleanup")
     val devices: CoroutineCollection<Document> = database.getCollection("notification_devices")
     val notificationOutbox: CoroutineCollection<Document> = database.getCollection("notification_outbox")
+    val mediaAssets: CoroutineCollection<Document> = database.getCollection("media_assets")
+    val mediaReferences: CoroutineCollection<Document> = database.getCollection("media_references")
 
     suspend fun ping() {
         checkNotNull(database.runCommand<Document>(Document("ping", 1)))
@@ -111,6 +113,11 @@ object MongoClientProvider {
         recoveryJobs.ensureIndex(Indexes.ascending("ownerId"))
         recoveryJobs.ensureIndex(Indexes.ascending("status", "dueAt"))
         personalFiles.ensureIndex(Indexes.ascending("ownerId"))
+        mediaAssets.ensureIndex(Indexes.ascending("kind", "subjectId"))
+        mediaReferences.ensureIndex(Indexes.ascending("assetId", "kind", "ownerId"))
+        mediaReferences.ensureIndex(Indexes.ascending("ownerId"))
+        mediaReferences.ensureIndex(Indexes.ascending("subjectId", "kind"))
+        mediaReferences.ensureIndex(Indexes.ascending("expiresAt"), IndexOptions().expireAfter(0, TimeUnit.SECONDS))
         privacyRequests.ensureIndex(Indexes.ascending("ownerId", "type"),
             IndexOptions().unique(true).partialFilterExpression(Filters.eq("status", "pending")))
     }

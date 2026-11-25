@@ -80,7 +80,17 @@ class ApiUserRepository @Inject constructor(
         try {
             val input = checkNotNull(context.contentResolver.openInputStream(uri)) { "Could not open selected image" }
             input.use { source ->
-                file.outputStream().use { output -> source.copyTo(output) }
+                file.outputStream().use { output ->
+                    val buffer = ByteArray(8192)
+                    var size = 0
+                    while (true) {
+                        val count = source.read(buffer)
+                        if (count < 0) break
+                        size += count
+                        if (size > 5 * 1024 * 1024) throw java.io.IOException("Choose an image smaller than 5 MB")
+                        output.write(buffer, 0, count)
+                    }
+                }
             }
             val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
             val body = MultipartBody.Part.createFormData("image", file.name, requestFile)
@@ -88,6 +98,14 @@ class ApiUserRepository @Inject constructor(
         } finally {
             file.delete()
         }
+    }
+
+    override suspend fun removeProfilePicture() = api.removeProfilePicture().url
+    override suspend fun updateProfileFields(userId: String, name: String?, theme: String?) {
+        val dto = api.patchProfile(PatchUserRequest(name, theme))
+        check(dto.id == userId)
+        userDao.insert(User(dto.id, dto.name, dto.email, dto.profilePicUrl.orEmpty(), dto.themePreference ?: "system",
+            dto.role ?: "user", dto.uniqueId.orEmpty(), dto.createdAt ?: 0, dto.updatedAt ?: 0))
     }
 
     private suspend fun preserveRole(user: User): User {

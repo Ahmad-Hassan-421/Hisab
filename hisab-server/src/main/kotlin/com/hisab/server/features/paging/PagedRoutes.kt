@@ -32,7 +32,7 @@ import org.bson.Document
 import java.util.concurrent.TimeUnit
 
 @Serializable
-data class GroupCard(val id: String, val name: String, val memberCount: Int, val createdAt: Long)
+data class GroupCard(val id: String, val name: String, val memberCount: Int, val createdAt: Long, val pictureUrl: String = "", val pictureUpdatedAt: Long = 0)
 @Serializable
 data class GroupOverview(
     val group: HisabGroupDocument,
@@ -68,11 +68,11 @@ fun Route.pagedRoutes() {
                 val actor = call.authenticatedUserId
                 val page = call.pageQuery("groups:$actor")
                 val rows = MongoClientProvider.groupDirectory.find(Filters.and(Filters.eq("members", actor), page.filter("createdAt")))
-                    .projection(Projections.include("_id", "name", "members", "createdAt"))
+                    .projection(Projections.include("_id", "name", "members", "createdAt", "pictureUrl", "pictureUpdatedAt"))
                     .sort(Sorts.descending("createdAt", "_id")).limit(page.limit + 1).maxTime(3, TimeUnit.SECONDS).toList()
                 call.response.header(HttpHeaders.CacheControl, "no-store")
                 call.respond(CursorPage(rows.take(page.limit).map {
-                    GroupCard(it.getString("_id"), it.getString("name"), it.strings("members").distinct().size, it.number("createdAt"))
+                    GroupCard(it.getString("_id"), it.getString("name"), it.strings("members").distinct().size, it.number("createdAt"), it.getString("pictureUrl").orEmpty(), it.number("pictureUpdatedAt"))
                 }, page.next(rows, "createdAt")))
             }
 
@@ -183,8 +183,11 @@ fun Route.pagedRoutes() {
                 val rows = MongoClientProvider.requestDirectory.find(Filters.and(Filters.eq("receiverId", actor),
                     Filters.eq("status", "pending"), page.filter("createdAt")))
                     .sort(Sorts.descending("createdAt", "_id")).limit(page.limit + 1).maxTime(3, TimeUnit.SECONDS).toList()
+                val pictures = MongoClientProvider.accountDirectory.find(Filters.`in`("_id", rows.take(page.limit).map { it.getString("senderId") }))
+                    .projection(Document("_id", 1).append("profilePicUrl", 1)).limit(page.limit).toList()
+                    .associate { it.getString("_id") to it.getString("profilePicUrl").orEmpty() }
                 val items = rows.take(page.limit).map {
-                    val picture = ProfileImages.publicUrl(it.getString("profilePictureUrl") ?: it.getString("senderProfilePicUrl").orEmpty())
+                    val picture = ProfileImages.publicUrl(pictures[it.getString("senderId")].orEmpty())
                     HisabRequestDocument(it.getString("_id"), it.getString("senderId"), it.getString("senderName"),
                         senderProfilePicUrl = picture, profilePictureUrl = picture, receiverId = actor,
                         groupId = it.getString("groupId"), groupName = it.getString("groupName"),

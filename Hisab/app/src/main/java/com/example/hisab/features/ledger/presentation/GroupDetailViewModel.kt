@@ -83,7 +83,8 @@ data class GroupDetailUiState(
     val memberNames: Map<String, String> = emptyMap(),
     val suggestionCursor: String? = null,
     val loadingSuggestions: Boolean = false,
-    val suggestionFailure: AppFailure? = null
+    val suggestionFailure: AppFailure? = null,
+    val isSavingPicture: Boolean = false
 )
 
 @HiltViewModel
@@ -107,6 +108,9 @@ class GroupDetailViewModel @Inject constructor(
     private var suggestionJob: Job? = null
     private var historyGeneration = 0
     private var overview: LedgerOverview? = null
+    private var pictureJob: Job? = null
+    private var pictureRefresh: Job? = null
+    private var pictureGeneration = 0L
 
     init {
         viewModelScope.launch {
@@ -114,6 +118,8 @@ class GroupDetailViewModel @Inject constructor(
                 ledgerObservation?.cancel()
                 memberJob?.cancel()
                 suggestionJob?.cancel()
+                pictureJob?.cancel()
+                pictureRefresh?.cancel()
                 closeHistory()
                 overview = null
                 _uiState.value = GroupDetailUiState()
@@ -242,7 +248,7 @@ class GroupDetailViewModel @Inject constructor(
         val members = calculateBalances(users.filter { it.id in allowed }, balances, value.names).map {
             it.copy(isExpanded = expanded[it.user.id] == true)
         }
-        val group = value.group.let { HisabGroup(it.id, it.name, it.members, it.exMembers.orEmpty(), it.createdAt) }
+        val group = value.group.let { HisabGroup(it.id, it.name, it.members, it.exMembers.orEmpty(), it.createdAt, it.memberCount ?: it.members.size, it.pictureUrl.orEmpty(), it.pictureUpdatedAt) }
         _uiState.update { it.copy(group = group, members = members, entryCount = value.entryCount,
             memberNames = value.names, hasSettledRecords = value.settled,
             showClearRecordsDialog = value.settled && (it.showClearRecordsDialog || refreshed && !it.hasSettledRecords && it.entryCount > 0),
@@ -251,6 +257,57 @@ class GroupDetailViewModel @Inject constructor(
             loadFailure = if (refreshed) null else it.loadFailure,
             ledgerNeedsRefresh = if (refreshed) false else it.ledgerNeedsRefresh,
             clearRecordsError = if (refreshed) null else it.clearRecordsError) }
+    }
+
+    fun setPicture(uri: android.net.Uri?) {
+        val actor = sessionManager.currentUserId.value ?: return
+        if (_uiState.value.isSavingPicture || _uiState.value.isUpdatingLedger || actor !in _uiState.value.group?.members.orEmpty()) return
+        pictureGeneration++
+        pictureRefresh?.cancel()
+        _uiState.update { it.copy(isSavingPicture = true) }
+        pictureJob = viewModelScope.launch {
+            try {
+                val path = groupRepository.setPicture(groupId, uri)
+                if (sessionManager.currentUserId.value != actor) return@launch
+                _uiState.update { it.copy(group = it.group?.copy(pictureUrl = path),
+                    requestSuccessMessage = if (path.isBlank()) "Shared picture removed" else "Shared picture updated") }
+                overview = overview?.let { it.copy(group = it.group.copy(pictureUrl = path)) }
+                loadData()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) {
+                if (sessionManager.currentUserId.value == actor) _uiState.update {
+                    it.copy(requestError = failures.report("Change shared picture", error).message)
+                }
+            } finally {
+                if (sessionManager.currentUserId.value == actor) _uiState.update { it.copy(isSavingPicture = false) }
+            }
+        }
+    }
+
+    fun reportPictureError() { _uiState.update { it.copy(requestError = "Couldn't open that picture. Choose another image.") } }
+
+    fun refreshPictures() {
+        val actor = sessionManager.currentUserId.value ?: return
+        if (_uiState.value.group == null || pictureRefresh?.isActive == true || _uiState.value.isSavingPicture) return
+        val generation = pictureGeneration
+        pictureRefresh = viewModelScope.launch {
+            try {
+                val ids = _uiState.value.members.map { it.user.id }
+                // Keep metadata queries bounded even after loading many member pages.
+                for (batch in ids.chunked(100).ifEmpty { listOf(emptyList()) }) {
+                    val value = groupRepository.pictures(groupId, batch) ?: return@launch
+                    if (sessionManager.currentUserId.value != actor || _uiState.value.isSavingPicture || generation != pictureGeneration) return@launch
+                    _uiState.update { state -> state.copy(group = state.group?.copy(pictureUrl = value.pictureUrl.orEmpty(), pictureUpdatedAt = value.pictureUpdatedAt),
+                        members = state.members.map { member -> value.members[member.user.id]?.let { member.copy(user = member.user.copy(profilePicUrl = it)) } ?: member }) }
+                    overview = overview?.let { it.copy(group = it.group.copy(pictureUrl = value.pictureUrl.orEmpty(), pictureUpdatedAt = value.pictureUpdatedAt)) }
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) {
+                if (error is retrofit2.HttpException && error.code() in setOf(401, 403, 404) && sessionManager.currentUserId.value == actor) {
+                    _uiState.update { it.copy(group = null, members = emptyList(), loadFailure = failures.report("Refresh Hisab pictures", error)) }
+                }
+            }
+        }
     }
 
     fun loadMoreMembers() {

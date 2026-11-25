@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit
 import com.hisab.server.features.realtime.WebSocketManager
 
 @Serializable internal data class ArchiveCard(val id: String, val name: String, val deletedAt: Long,
-    val expiresAt: Long?, val recoveredAt: Long?, val recordCount: Long, val memberCount: Long, val status: String)
+    val expiresAt: Long?, val recoveredAt: Long?, val recordCount: Long, val memberCount: Long, val status: String, val pictureUrl: String = "")
 @Serializable internal data class RecoveryReceipt(val id: String, val name: String, val status: String, val dueAt: Long)
 @Serializable private data class DeleteAccountInput(val accountId: String, val password: String)
 @Serializable internal data class HistoricalMember(val id: String, val name: String, val profilePicUrl: String)
@@ -35,7 +35,7 @@ import com.hisab.server.features.realtime.WebSocketManager
 private fun Document.number(key: String) = (get(key) as? Number)?.toLong() ?: 0L
 private fun Document.card(status: String? = null) = ArchiveCard(getString("_id"), getString("name"), number("deletedAt"),
     getDate("expiresAt")?.time, (get("recoveredAt") as? Number)?.toLong(), number("recordCount"), number("memberCount"),
-    status ?: getString("status"))
+    status ?: getString("status"), getString("pictureUrl").orEmpty())
 
 private val PrivateDataResponses = createRouteScopedPlugin("PrivateDataResponses") {
     onCallRespond { call, _ -> call.response.header(HttpHeaders.CacheControl, "no-store") }

@@ -11,5 +11,10 @@ interface UserRepository {
     suspend fun saveUser(user: User)
     suspend fun updateUser(user: User)
     suspend fun uploadProfilePicture(uri: Uri): String
+    suspend fun removeProfilePicture(): String = throw UnsupportedOperationException("Remote picture removal unavailable")
+    suspend fun updateProfileFields(userId: String, name: String? = null, theme: String? = null) {
+        val user = fetchRemoteUser(userId, false) ?: return
+        updateUser(user.copy(name = name ?: user.name, themePreference = theme ?: user.themePreference))
+    }
     suspend fun deleteUser(userId: String)
 }

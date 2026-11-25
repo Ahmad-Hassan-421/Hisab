@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.isActive
 import com.example.hisab.features.ledger.presentation.components.AddAmountDialog
 import com.example.hisab.features.ledger.presentation.components.IOweHimDialog
 import com.example.hisab.features.ledger.presentation.components.MemberBalanceCard
@@ -50,6 +52,15 @@ fun GroupDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val activeIds = uiState.group?.members.orEmpty().toSet()
     val activeMembers = uiState.members.filter { it.user.id in activeIds }
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    LaunchedEffect(viewModel, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+                viewModel.refreshPictures()
+                kotlinx.coroutines.delay(15_000)
+            }
+        }
+    }
     
     var showInviteDialog by remember { mutableStateOf(false) }
     var inviteUniqueId by remember { mutableStateOf("") }
@@ -331,7 +342,7 @@ fun GroupDetailScreen(
         ) {
             val group = uiState.group
             val failure = uiState.loadFailure
-            val canWrite = !uiState.isUpdatingLedger && !uiState.isRefreshing && !uiState.isLeaving
+            val canWrite = !uiState.isUpdatingLedger && !uiState.isRefreshing && !uiState.isLeaving && !uiState.isSavingPicture
             if (group == null && failure != null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     LoadFailure("Couldn't load this Hisab", failure, viewModel::loadData, retryEnabled = !uiState.isLoading)
@@ -348,15 +359,20 @@ fun GroupDetailScreen(
                     item {
                         OutlinedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
                             Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.primaryContainer) {
-                                    Icon(Icons.Default.Group, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(64.dp).padding(16.dp))
-                                }
+                                com.example.hisab.ui.components.HisabAvatar(group.pictureUrl, Modifier.size(64.dp), "${group.name} picture", group = true)
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(group.name, Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineSmall)
                                     Text("${group.members.size} active members · ${uiState.entryCount} records",
                                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
+                            }
+                            Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp)) {
+                                com.example.hisab.ui.components.SharedPictureControl("${uiState.currentUserId}:${group.id}",
+                                    group.pictureUrl.isNotBlank(), uiState.isSavingPicture,
+                                    uiState.currentUserId in group.members && !uiState.isLeaving && !uiState.isUpdatingLedger && !uiState.isLoading,
+                                    viewModel::setPicture, { viewModel.setPicture(null) }, viewModel::reportPictureError)
+                                Text("Shared with every active member", style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }

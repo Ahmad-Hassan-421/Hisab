@@ -21,6 +21,22 @@ import retrofit2.Response
 import retrofit2.http.*
 
 interface HisabApiService {
+    @Streaming
+    @GET("media/{id}")
+    suspend fun downloadMedia(@Path("id") id: String): okhttp3.ResponseBody
+    @POST("media/access")
+    suspend fun mediaAccess(@Body input: MediaAccessInput): MediaAccessResponse
+    @GET("groups/{id}/pictures")
+    suspend fun groupPictures(@Path("id") id: String, @Query("members") members: String): GroupPictures
+    @Multipart
+    @POST("groups/{id}/picture")
+    suspend fun uploadGroupPicture(@Path("id") id: String, @Part image: MultipartBody.Part): UploadResponse
+    @DELETE("groups/{id}/picture")
+    suspend fun removeGroupPicture(@Path("id") id: String): UploadResponse
+    @DELETE("upload/profile-pic")
+    suspend fun removeProfilePicture(): UploadResponse
+    @PATCH("users/me")
+    suspend fun patchProfile(@Body input: PatchUserRequest): UserDto
     @GET("v2/dashboard/summary")
     suspend fun getDashboardSummary(): DashboardSummaryDto
     @GET("account/data/archives")

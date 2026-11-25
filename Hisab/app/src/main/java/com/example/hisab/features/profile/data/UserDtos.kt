@@ -17,6 +17,7 @@ data class UpdateUserRequest(
     val profilePicUrl: String,
     val themePreference: String
 )
+data class PatchUserRequest(val name: String? = null, val themePreference: String? = null)
 
 data class UploadResponse(
     val url: String

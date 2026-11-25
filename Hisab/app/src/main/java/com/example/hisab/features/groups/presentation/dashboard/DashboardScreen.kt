@@ -186,7 +186,7 @@ private fun HisabGroupItem(group: HisabGroup, onDelete: () -> Unit, onClick: () 
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            GroupIcon()
+            com.example.hisab.ui.components.HisabAvatar(group.pictureUrl, Modifier.size(48.dp), "${group.name} picture", group = true)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(group.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 val count = group.memberCount

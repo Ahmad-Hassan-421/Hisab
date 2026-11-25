@@ -42,6 +42,7 @@ python3 scripts/qa/check_api.py --extended --port 18081 | tee "$report_dir/api-r
 HISAB_QA_MONGO_CONTAINER="$container" python3 scripts/qa/check_pagination.py --port 18081 | tee "$report_dir/pagination-regression.txt"
 python3 -m venv "$report_dir/qa-python"
 "$report_dir/qa-python/bin/python" -m pip install --disable-pip-version-check 'pymongo==4.19.0'
+"$report_dir/qa-python/bin/python" scripts/qa/check_media.py --restart-file "$report_dir/../hisab-media-restart.json" | tee "$report_dir/media-regression.txt"
 "$report_dir/qa-python/bin/python" scripts/qa/check_archives.py | tee "$report_dir/archive-regression.txt"
 
 # Existing accounts must not acquire a privacy acknowledgment during a server restart.
@@ -53,6 +54,7 @@ wait "$server_pid" || true
 hisab-server/build/install/hisab-server/bin/hisab-server >>"$report_dir/hisab-server.log" 2>&1 &
 server_pid=$!
 wait_for curl --fail --silent --max-time 2 http://127.0.0.1:18081/health
+"$report_dir/qa-python/bin/python" scripts/qa/check_media.py --restart-file "$report_dir/../hisab-media-restart.json" --verify-restart | tee -a "$report_dir/media-regression.txt"
 docker exec "$container" mongosh hisab_ci --quiet --eval 'quit(db.userDocument.countDocuments({privacyPolicyAcceptedAt:{$exists:true}}) === 0 ? 0 : 1)'
 docker exec "$container" mongosh hisab_ci --quiet --eval 'quit(db.invite_message_document.countDocuments({}) === 100 && db.invite_message_document.countDocuments({key:"invite-message-001",text:"Retain this edited template",active:false}) === 1 ? 0 : 1)'
 

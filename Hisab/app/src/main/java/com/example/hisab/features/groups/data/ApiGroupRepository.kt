@@ -9,8 +9,12 @@ import javax.inject.Singleton
 
 @Singleton
 class ApiGroupRepository @Inject constructor(
-    private val api: HisabApiService
+    private val api: HisabApiService,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) : GroupRepository {
+    override suspend fun pictures(groupId: String, members: List<String>) = api.groupPictures(groupId, members.joinToString(","))
+    override suspend fun setPicture(groupId: String, uri: android.net.Uri?): String = if (uri == null) api.removeGroupPicture(groupId).url
+        else com.example.hisab.features.profile.data.uploadCroppedImage(context, uri) { api.uploadGroupPicture(groupId, it).url }
     override suspend fun getSummary(): com.example.hisab.features.groups.domain.DashboardSummary {
         val value = api.getDashboardSummary()
         val debt = value.totalDebt.toBigDecimalOrNull()
@@ -42,5 +46,5 @@ class ApiGroupRepository @Inject constructor(
         api.leaveGroup(groupId)
     }
 
-    private fun HisabGroupDto.toDomain() = HisabGroup(id, name, members.orEmpty(), exMembers.orEmpty(), createdAt, memberCount ?: members.orEmpty().size)
+    private fun HisabGroupDto.toDomain() = HisabGroup(id, name, members.orEmpty(), exMembers.orEmpty(), createdAt, memberCount ?: members.orEmpty().size, pictureUrl.orEmpty(), pictureUpdatedAt)
 }

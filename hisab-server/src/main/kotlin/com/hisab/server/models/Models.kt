@@ -53,7 +53,9 @@ data class HisabGroupDocument(
     val members: List<String>,
     val exMembers: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
-    @Transient val ledgerRevision: Long = 0
+    @Transient val ledgerRevision: Long = 0,
+    val pictureUrl: String = "",
+    val pictureUpdatedAt: Long = 0
 )
 
 @Serializable

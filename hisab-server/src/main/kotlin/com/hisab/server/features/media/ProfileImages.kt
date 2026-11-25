@@ -18,6 +18,7 @@ internal object ProfileImages {
 
     fun isSupported(value: String): Boolean {
         if (value.isEmpty()) return true
+        if (mediaId(value) != null) return true
         val uri = runCatching { URI(value) }.getOrNull() ?: return false
         if (value.startsWith("/static/")) {
             return uri.path.split('/').none { it == "." || it == ".." } &&

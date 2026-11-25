@@ -11,6 +11,7 @@ import java.io.File
 
 fun Application.startPrivacyWorker(uploadDirectory: File) {
     val worker = launch(Dispatchers.IO) {
+        var mediaCursor: String? = null
         while (isActive) {
             try {
                 val jobs = DB.recoveryJobs.find(and(eq("status", "pending"), lte("dueAt", System.currentTimeMillis())))
@@ -41,6 +42,7 @@ fun Application.startPrivacyWorker(uploadDirectory: File) {
                     }
                     DB.fileCleanup.deleteOne(eq("_id", record.getString("_id")))
                 }
+                mediaCursor = com.hisab.server.features.media.cleanupMedia(mediaCursor)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) { log.warn("Privacy worker will retry ({})", failure.javaClass.simpleName) }
             delay(15_000L)

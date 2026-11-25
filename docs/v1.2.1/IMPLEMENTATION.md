@@ -15,8 +15,8 @@ Work proceeds on `codex/hisab-v1.2.1`. Do not publish the stable tag or apply pr
 | 4 | Reusable skeletons, loading, empty/error/retry behavior | Complete |
 | 5 | Startup/session/consent navigation coordination | Complete |
 | 6 | Settings redesign and visible version presentation | Complete |
-| 7 | Home and Hisab detail presentation | In progress |
-| 8 | Shared/member pictures, durable storage and account-aware image caching | Pending |
+| 7 | Home and Hisab detail presentation | Complete |
+| 8 | Shared/member pictures, durable storage and account-aware image caching | In progress |
 | 9 | Multi-device push registration, durable event delivery, preferences and deep links | Pending implementation; configuration located, delivery unverified |
 | 10 | Shared automatic/manual/push update flow and release metadata | Pending |
 | 11 | Security, safe migrations and cross-feature consistency audit | Pending |
@@ -108,3 +108,15 @@ Added an authenticated, no-store Home summary that streams reduced actor/counter
 Refined Home cards, hierarchy, summary presentation and primary actions. Details now have a clearer group header, authoritative record count and personal position card; member debt/receivable metrics share the same design. Kept keyed virtualization and paged history. Member selection is disabled during financial submissions. Missing legacy timestamps display Date unavailable instead of a fabricated January 1970 date; missing deleted identities are labeled as such.
 
 Added summary/paging/failure/account-scope unit coverage, shared monetary rounding/non-finite aggregate tests, currency/date display tests, and independent HTTP Decimal checks for complete Home totals, opposing obligations in different ledgers, former-member exclusion and authentication. Final GitHub checks are pending before completion. Group pictures are wired to this header and the Home cards in phase 8.
+
+Phase 7 final verification: commit 0ba7eeb passed all three GitHub jobs: backend tests/integration/container/dependency audit, Android tests/lint/APK checks, and API 34 emulator tests. All 21 backend unit tests also passed locally. The first push encountered a network connection failure; the retry succeeded. No production deployment or data changes occurred.
+
+## Phase 8 implementation; verification pending
+
+New profile and shared Hisab images are normalized into bounded square JPEGs and stored as immutable versions in MongoDB, replacing ephemeral filesystem writes. Uploads inspect format, dimensions and byte limits before decoding, subsample oversized images, crop and strip source metadata. Profile upload/removal updates the authoritative account field atomically; active group members can update/remove their shared picture atomically. Field-specific profile patches prevent name/theme edits from overwriting newer photos. Existing device-only crops migrate after confirming the account's remote profile, with an already-synchronized remote version taking precedence.
+
+Authenticated image reads and batched authorization enforce current membership, invitation and private archive/recovery access before processing validators. Picture references follow private snapshots through independent recovery and expire with archives. Permanently deleting an account removes its personal image bytes/references while preserving shared group pictures for remaining members. A bounded background sweep removes old unreferenced versions after a grace period.
+
+Home and group headers show shared pictures; active details expose gallery/crop/upload/remove controls and bounded current-member picture metadata refresh while visible. Read-only recovered views show historical pictures without editing controls. The app stores authorized immutable versions in a private, account-scoped 32 MB cache, coalesces concurrent reads, rechecks access in bounded batches while visible, removes revoked versions and clears previous-account images on logout/switch/deletion. Offline use retains only that account's previously authorized cached files.
+
+Backend source compiled locally and the initial Android compilation passed. Added image-decoding unit tests, disposable HTTP coverage for permissions/version replacement/retention/deletion, a real server-process restart check, and a native cache restart/revocation/account-isolation test. Final tests, lint and GitHub verification are pending; phase 8 is not complete yet. No production deployment or data changes occurred.

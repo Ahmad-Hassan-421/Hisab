@@ -67,5 +67,6 @@ jobs:
             ${{ runner.temp }}/hisab-backend/api-regression.txt
             ${{ runner.temp }}/hisab-backend/pagination-regression.txt
             ${{ runner.temp }}/hisab-backend/archive-regression.txt
+            ${{ runner.temp }}/hisab-backend/media-regression.txt
             ${{ runner.temp }}/hisab-backend/dependency-audit.json
           retention-days: 14

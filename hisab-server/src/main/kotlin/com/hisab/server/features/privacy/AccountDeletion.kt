@@ -35,6 +35,7 @@ internal suspend fun permanentlyDeleteAccount(actor: String, password: String, c
                     DB.entries.deleteMany(session, eq("groupId", id))
                     DB.requests.deleteMany(session, eq("groupId", id))
                     DB.groups.deleteOne(session, eq("_id", id))
+                    DB.mediaReferences.deleteOne(session, eq("_id", "group:$id"))
                 } else {
                     val former = (group.getList("exMembers", String::class.java).orEmpty().filterNot { it == actor } + anonymous).distinct()
                     DB.groups.updateOne(session, eq("_id", id), Updates.combine(Updates.set("members", others),
@@ -69,6 +70,14 @@ internal suspend fun permanentlyDeleteAccount(actor: String, password: String, c
             DB.fileCleanup.insertOne(session, Document("_id", UUID.randomUUID().toString()).append("fileName", it))
         }
         DB.personalFiles.deleteMany(session, eq("ownerId", actor))
+        while (true) {
+            val images = DB.mediaAssets.find(session, and(eq("kind", "profile"), eq("subjectId", actor)))
+                .projection(Document("_id", 1)).limit(100).toList().map { it.getString("_id") }
+            if (images.isEmpty()) break
+            DB.mediaReferences.deleteMany(session, `in`("assetId", images))
+            DB.mediaAssets.deleteMany(session, `in`("_id", images))
+        }
+        DB.mediaReferences.deleteMany(session, or(eq("ownerId", actor), eq("_id", "profile:$actor")))
         DB.users.deleteOne(session, eq("_id", actor))
     }
 }

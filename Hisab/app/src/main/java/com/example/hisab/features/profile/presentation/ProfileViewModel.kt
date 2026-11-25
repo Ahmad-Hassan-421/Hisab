@@ -90,11 +90,20 @@ class ProfileViewModel @Inject constructor(
                     LocalProfilePhoto.Removed
                 }
                 if (sessionManager.currentUserId.value != userId) return@launch
-                if (photoWrite === writeAtStart && !_uiState.value.isUploading) {
-                    _uiState.update { it.copy(localPhoto = photo) }
-                }
                 userRepository.getCurrentUser(userId).first()?.let(::showProfile)
-                val user = userRepository.fetchRemoteUser(userId, allowCached = false)
+                var user = userRepository.fetchRemoteUser(userId, allowCached = false)
+                if (sessionManager.currentUserId.value != userId) return@launch
+                if (photoWrite === writeAtStart && !_uiState.value.isUploading && user != null) {
+                    // Migrate an existing device-only crop once; an already-synchronized remote version wins.
+                    if (photo is LocalProfilePhoto.Selected && !user.profilePicUrl.startsWith("/media/")) {
+                        try {
+                            userRepository.uploadProfilePicture(Uri.fromFile(photo.file))
+                            user = userRepository.fetchRemoteUser(userId, allowCached = false)
+                            photos.erase(userId)
+                        } catch (cancelled: CancellationException) { throw cancelled }
+                        catch (_: Exception) { _uiState.update { it.copy(error = "Your saved picture hasn't synced. Choose it again when you're online.") } }
+                    } else photos.erase(userId)
+                }
                 if (sessionManager.currentUserId.value != userId) return@launch
                 if (user != null) showProfile(user)
                 _uiState.update { it.copy(isLoading = false, loadFailure = if (user == null) AppFailure.MISSING else null) }
@@ -126,8 +135,7 @@ class ProfileViewModel @Inject constructor(
             val userId = sessionManager.currentUserId.value ?: return@launch
             try {
                 themePreferencesManager.setThemeMode(mode)
-                val user = userRepository.fetchRemoteUser(userId, allowCached = false)
-                if (user != null) userRepository.updateUser(user.copy(themePreference = mode.name.lowercase()))
+                userRepository.updateProfileFields(userId, theme = mode.name.lowercase())
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -155,7 +163,7 @@ class ProfileViewModel @Inject constructor(
                     _uiState.update { it.copy(isSaving = false, error = AppFailure.MISSING.message) }
                     return@launch
                 }
-                userRepository.updateUser(user.copy(name = state.name))
+                userRepository.updateProfileFields(userId, name = state.name)
                 if (sessionManager.currentUserId.value != userId) return@launch
                 if (_uiState.value.name == state.name) nameEdited = false
                 _uiState.update { it.copy(isSaving = false, successMessage = "Profile updated successfully") }
@@ -168,35 +176,40 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun saveProfilePicture(accountId: String, uri: Uri) = changePhoto(accountId) { photos.save(accountId, uri) }
+    fun saveProfilePicture(accountId: String, uri: Uri) = changePhoto(accountId) {
+        userRepository.uploadProfilePicture(uri)
+    }
 
     fun removeProfilePicture() {
         val accountId = sessionManager.currentUserId.value ?: return
         changePhoto(accountId) {
-            photos.remove(accountId)
-            LocalProfilePhoto.Removed
+            userRepository.removeProfilePicture()
         }
     }
 
-    private fun changePhoto(accountId: String, change: suspend () -> LocalProfilePhoto) {
+    private fun changePhoto(accountId: String, change: suspend () -> String) {
         if (sessionManager.currentUserId.value != accountId || _uiState.value.accountId != accountId) return
         if (_uiState.value.isUploading || _uiState.value.isSaving) return
 
         _uiState.update { it.copy(isUploading = true, error = null, successMessage = null) }
         photoWrite = viewModelScope.launch {
             try {
-                val photo = change()
+                val path = change()
+                if (sessionManager.currentUserId.value != accountId) return@launch
+                _uiState.update { it.copy(profilePicUrl = path, localPhoto = LocalProfilePhoto.Unset) }
+                photos.erase(accountId)
+                userRepository.fetchRemoteUser(accountId, allowCached = false)?.let(::showProfile)
                 if (sessionManager.currentUserId.value != accountId) return@launch
                 _uiState.update {
-                    it.copy(isUploading = false, localPhoto = photo, successMessage =
-                        if (photo == LocalProfilePhoto.Removed) "Picture reset on this device" else "Picture saved on this device")
+                    it.copy(isUploading = false, successMessage = if (path.isBlank()) "Picture removed" else "Picture synced with your account")
                 }
-            } catch (e: Exception) {
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (e: Exception) {
                 val message = if (e is LocalProfilePhotoStore.InvalidPhoto) {
                     "Couldn’t read that crop. Choose a different picture."
                 } else {
                     failures.report("Save profile picture", e)
-                    "Couldn’t save your picture on this device. Try again."
+                    "Couldn’t sync your picture. Check your connection and try again."
                 }
                 if (sessionManager.currentUserId.value != accountId) return@launch
                 _uiState.update {

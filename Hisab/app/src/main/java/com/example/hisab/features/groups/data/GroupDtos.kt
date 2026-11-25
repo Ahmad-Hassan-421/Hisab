@@ -8,7 +8,9 @@ data class HisabGroupDto(
     val members: List<String> = emptyList(),
     val exMembers: List<String>? = null,
     val createdAt: Long,
-    val memberCount: Int? = null
+    val memberCount: Int? = null,
+    val pictureUrl: String = "",
+    val pictureUpdatedAt: Long = 0
 )
 
 data class CreateGroupRequest(
