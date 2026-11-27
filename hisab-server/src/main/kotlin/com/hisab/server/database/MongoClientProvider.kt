@@ -50,6 +50,9 @@ object MongoClientProvider {
     val fileCleanup: CoroutineCollection<Document> = database.getCollection("file_cleanup")
     val devices: CoroutineCollection<Document> = database.getCollection("notification_devices")
     val notificationOutbox: CoroutineCollection<Document> = database.getCollection("notification_outbox")
+    val notificationPreferences: CoroutineCollection<Document> = database.getCollection("notification_preferences")
+    val notificationDeliveries: CoroutineCollection<Document> = database.getCollection("notification_deliveries")
+    val releaseNotificationJobs: CoroutineCollection<Document> = database.getCollection("release_notification_jobs")
     val mediaAssets: CoroutineCollection<Document> = database.getCollection("media_assets")
     val mediaReferences: CoroutineCollection<Document> = database.getCollection("media_references")
 
@@ -114,6 +117,16 @@ object MongoClientProvider {
         recoveryJobs.ensureIndex(Indexes.ascending("ownerId"))
         recoveryJobs.ensureIndex(Indexes.ascending("status", "dueAt"))
         personalFiles.ensureIndex(Indexes.ascending("ownerId"))
+        devices.ensureIndex(Indexes.ascending("ownerId", "enabled"))
+        devices.ensureIndex(Indexes.ascending("enabled", "ownerId", "versionCode"))
+        devices.ensureIndex(Indexes.ascending("tokenDigest"), IndexOptions().unique(true).partialFilterExpression(Filters.type("tokenDigest", org.bson.BsonType.STRING)))
+        for (collection in listOf(devices, notificationOutbox, notificationDeliveries)) {
+            collection.ensureIndex(Indexes.ascending("expiresAt"), IndexOptions().expireAfter(0, TimeUnit.SECONDS))
+        }
+        notificationOutbox.ensureIndex(Indexes.ascending("status", "dueAt", "leaseUntil"))
+        notificationOutbox.ensureIndex(Indexes.ascending("ownerId"))
+        notificationDeliveries.ensureIndex(Indexes.ascending("ownerId"))
+        releaseNotificationJobs.ensureIndex(Indexes.ascending("status", "leaseUntil"))
         mediaAssets.ensureIndex(Indexes.ascending("kind", "subjectId"))
         mediaReferences.ensureIndex(Indexes.ascending("assetId", "kind", "ownerId"))
         mediaReferences.ensureIndex(Indexes.ascending("ownerId"))

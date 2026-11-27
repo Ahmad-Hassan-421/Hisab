@@ -16,6 +16,9 @@
 | `CORS_ALLOWED_ORIGINS` | Optional comma-separated browser origins such as `https://dashboard.example.invalid`. Native Android can use the API without CORS. |
 | `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` | Configure both to enable welcome messages, recovery email verification, and password reset. Use a Brevo sender authorized for transactional email. |
 | `HISAB_DEV_BREVO_URL` | Optional loopback HTTP endpoint for a disposable email sink. It is read only when `HISAB_ENV=development`. |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Complete service-account JSON for FCM HTTP v1, including project ID, client email and private key. Keep it in server secrets only. A private-key block alone is insufficient. |
+| `FIREBASE_PROJECT_ID` | Expected Firebase project, default `hisab-90ff2`. Credentials for another project are rejected. |
+| `HISAB_RELEASE_NOTIFICATIONS_ENABLED` | Defaults to disabled. Set to `true` only after the compatible backend and canonical stable GitHub release assets are verified. Future verified releases then fan out idempotently to older registered devices. |
 
 The server reads the process environment. Use the [.env.example](../.env.example) template to see the variable names.
 

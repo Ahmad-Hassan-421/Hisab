@@ -8,7 +8,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class TokenManager @Inject constructor(@ApplicationContext context: Context) : SessionCredentials {
+class TokenManager @Inject constructor(@ApplicationContext private val context: Context,
+    private val push: com.example.hisab.features.notifications.PushState) : SessionCredentials {
     private val masterKey = MasterKey.Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
         .build()
@@ -47,6 +48,13 @@ class TokenManager @Inject constructor(@ApplicationContext context: Context) : S
 
     @Synchronized
     override fun clearAll() {
+        getUserId()?.let {
+            // Notification storage/scheduling must never keep an authentication session alive during logout.
+            runCatching { push.signOut(it) }
+            runCatching { androidx.core.app.NotificationManagerCompat.from(context).cancelAll() }
+            runCatching { com.google.firebase.messaging.FirebaseMessaging.getInstance().isAutoInitEnabled = false }
+            runCatching { com.example.hisab.features.notifications.schedulePushSync(context) }
+        }
         sharedPreferences.edit().clear().apply()
     }
 

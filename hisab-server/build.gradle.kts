@@ -34,6 +34,13 @@ repositories {
     mavenCentral()
 }
 
+tasks.test { exclude("**/NotificationDeliveryIntegrationTest*") }
+tasks.register<Test>("notificationIntegrationTest") {
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    filter { includeTestsMatching("com.hisab.server.features.notifications.NotificationDeliveryIntegrationTest") }
+}
+
 dependencies {
     implementation(platform("io.netty:netty-bom:$netty_version"))
     implementation(platform("com.fasterxml.jackson:jackson-bom:$jackson_version"))

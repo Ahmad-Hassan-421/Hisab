@@ -33,6 +33,11 @@ android {
     namespace = "com.example.hisab"
     compileSdk = 34
     sourceSets.getByName("main").assets.srcDir(rootProject.file("../hisab-server/src/main/resources/policies"))
+    if (qaPackage) {
+        sourceSets.getByName("debug").res.srcDir("src/qa/res")
+        sourceSets.getByName("debug").java.srcDir("src/qa/java")
+        sourceSets.getByName("debug").manifest.srcFile("src/qa/AndroidManifest.xml")
+    }
 
     defaultConfig {
         applicationId = "com.example.hisab"
@@ -143,6 +148,9 @@ dependencies {
     
     // OkHttp & WebSockets
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // The current Kotlin 1.9/Compose compiler requires the compatible FCM token API line.
+    implementation("com.google.firebase:firebase-messaging:24.1.2")
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("androidx.datastore:datastore-preferences:1.0.0")

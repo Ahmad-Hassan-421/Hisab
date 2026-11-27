@@ -114,6 +114,8 @@ fun Route.requestRoutes() {
                         invitationMessage = selectedMessage
                     )
                     requests.insertOne(session, invitation)
+                    com.hisab.server.features.notifications.queueNotification(session, receiver.id, "INVITATION", invitation.id,
+                        "New Hisab invite", "${sender.name} invited you to ${group.name}", group.id, sender.id)
                     invitation to true
                 }
                 if (created) {

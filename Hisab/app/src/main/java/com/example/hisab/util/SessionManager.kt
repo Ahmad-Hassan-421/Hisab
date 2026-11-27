@@ -3,11 +3,16 @@ package com.example.hisab.util
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class SessionManager @Inject constructor() {
+    private val changes = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val activityUpdates = changes.asSharedFlow()
+    fun noteActivity(owner: String, groupId: String) { if (_currentUserId.value == owner) changes.tryEmit(groupId) }
 
     private val _currentUserId = MutableStateFlow<String?>(null)
     val currentUserId: StateFlow<String?> = _currentUserId.asStateFlow()

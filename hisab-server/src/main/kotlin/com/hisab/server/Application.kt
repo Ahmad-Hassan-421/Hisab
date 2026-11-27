@@ -5,6 +5,8 @@ import com.hisab.server.database.databaseStartupTimeout
 import com.hisab.server.database.initializeDatabase
 import com.hisab.server.features.accounts.EmailUtil
 import com.hisab.server.features.privacy.startPrivacyWorker
+import com.hisab.server.features.notifications.startNotificationWorker
+import com.hisab.server.features.notifications.startReleaseNotificationWorker
 import com.hisab.server.plugins.*
 import io.ktor.server.application.*
 import io.ktor.server.netty.*
@@ -43,4 +45,6 @@ fun Application.module() {
     configureSockets()
     configureRouting(uploadDirectory)
     startPrivacyWorker(uploadDirectory)
+    startNotificationWorker()
+    startReleaseNotificationWorker()
 }

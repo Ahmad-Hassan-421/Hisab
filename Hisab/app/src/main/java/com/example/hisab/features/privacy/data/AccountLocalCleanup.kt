@@ -9,9 +9,10 @@ import javax.inject.Inject
 
 interface AccountLocalCleanup { suspend fun erase(accountId: String) }
 class DeviceAccountCleanup @Inject constructor(private val database: HisabDatabase, private val photos: LocalProfilePhotoStore,
-    private val tokens: TokenManager, private val media: com.example.hisab.features.profile.data.MediaStore) : AccountLocalCleanup {
+    private val tokens: TokenManager, private val media: com.example.hisab.features.profile.data.MediaStore,
+    private val push: com.example.hisab.features.notifications.PushState) : AccountLocalCleanup {
     override suspend fun erase(accountId: String) = withContext(Dispatchers.IO) {
         try { media.erase(accountId); database.clearAllTables(); photos.erase(accountId) }
-        finally { if (tokens.getUserId() == accountId) tokens.clearAll() }
+        finally { try { if (tokens.getUserId() == accountId) tokens.clearAll() } finally { push.erase(accountId) } }
     }
 }

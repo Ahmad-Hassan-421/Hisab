@@ -5,6 +5,8 @@ import com.hisab.server.features.groups.lockGroupForMember
 
 import com.hisab.server.database.MongoClientProvider
 import com.hisab.server.database.groupPairBalances
+import com.hisab.server.features.notifications.notificationDocument
+import org.bson.Document
 import com.mongodb.client.model.Filters
 import com.hisab.server.models.HisabEntryDocument
 import com.hisab.server.models.HisabGroupDocument
@@ -100,6 +102,31 @@ private suspend fun persistEntries(inputs: List<CreateEntryRequest>, actor: Stri
                 }
             }
             entries.insertMany(session, documents)
+            val finalBalances = if (documents.any { it.type == REPAYMENT }) groupPairBalances(group.id, session).associate {
+                (it.firstId to it.secondId) to it.amount.toBigDecimal()
+            } else emptyMap()
+            val parties = (documents.flatMap { listOf(it.debtorId, it.creditorId) } + actor).distinct()
+            val names = MongoClientProvider.accountDirectory.find(session, Filters.and(Filters.`in`("_id", parties),
+                Filters.or(Filters.eq("accountStatus", null), Filters.eq("accountStatus", "active"))))
+                .projection(Document("_id", 1).append("name", 1)).toList().associate { it.getString("_id") to it.getString("name") }
+            val notifications = mutableListOf<Document>()
+            for (entry in documents) {
+                val amount = BigDecimal.valueOf(entry.amount).setScale(3, java.math.RoundingMode.HALF_UP).toPlainString()
+                if (entry.type == REPAYMENT) {
+                    val pair = entry.ledgerPair()
+                    val net = finalBalances[pair] ?: BigDecimal.ZERO
+                    val remaining = (if (entry.creditorId == pair.first) net else -net).max(BigDecimal.ZERO).setScale(3).toPlainString()
+                    val recipient = if (entry.creditorId == actor) entry.debtorId else entry.creditorId
+                    val body = if (recipient == entry.creditorId) "You paid PKR $amount to ${names[entry.debtorId] ?: "a member"}. Remaining debt: PKR $remaining. Hisab: ${group.name}"
+                        else "${names[entry.creditorId] ?: "A member"} paid you PKR $amount. Remaining debt: PKR $remaining. Hisab: ${group.name}"
+                    if (recipient in names) notifications.add(notificationDocument(recipient, "PAYMENT", entry.id, "Payment recorded", body, group.id, actor, entry.id))
+                } else {
+                    val recipient = if (entry.debtorId == actor) entry.creditorId else entry.debtorId
+                    val body = "PKR $amount · ${entry.description.ifBlank { "Shared expense" }} · Added by ${names[actor] ?: "a member"} · Hisab: ${group.name}"
+                    if (recipient in names) notifications.add(notificationDocument(recipient, "DEBT", entry.id, "New debt added", body, group.id, actor, entry.id))
+                }
+            }
+            if (notifications.isNotEmpty()) MongoClientProvider.notificationOutbox.insertMany(session, notifications)
             documents
         } else {
             if (!documents.zip(previous).all { (requested, existing) ->

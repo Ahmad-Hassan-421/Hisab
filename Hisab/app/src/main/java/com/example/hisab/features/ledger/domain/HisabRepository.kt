@@ -15,6 +15,7 @@ interface HisabRepository {
     suspend fun syncGroupEntries(groupId: String)
     suspend fun clearGroupEntries(groupId: String)
     suspend fun getOverview(groupId: String): LedgerOverview? = null
+    suspend fun getEntry(groupId: String, entryId: String): HisabEntry? = null
     suspend fun getMembersPage(groupId: String, cursor: String? = null): CursorPage<User> = CursorPage(emptyList())
     suspend fun getSuggestedMembersPage(groupId: String, cursor: String? = null): CursorPage<User> = CursorPage(emptyList())
     suspend fun getEntriesPage(groupId: String, cursor: String? = null, kind: String = "all",

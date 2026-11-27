@@ -81,11 +81,13 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var themePreferencesManager: ThemePreferencesManager
     @Inject lateinit var mediaStore: com.example.hisab.features.profile.data.MediaStore
+    @Inject lateinit var pushNavigation: com.example.hisab.features.notifications.PushNavigation
 
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setTheme(R.style.Theme_Hisab)
+        pushNavigation.receive(intent)
         lifecycleScope.launch {
             repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
                 while (kotlinx.coroutines.currentCoroutineContext().isActive) {
@@ -130,17 +132,25 @@ class MainActivity : ComponentActivity() {
                             onFinished = startupViewModel::finishAnimation)
                     } else {
                         HisabNavHost(startDest = requireNotNull(boot.destination),
-                            sessionViewModel = sessionViewModel, privacyViewModel = privacyViewModel)
+                            sessionViewModel = sessionViewModel, privacyViewModel = privacyViewModel, pushNavigation = pushNavigation)
                     }
                 }
             }
             }
         }
     }
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent); setIntent(intent); pushNavigation.receive(intent)
+    }
+    override fun onResume() {
+        super.onResume()
+        com.example.hisab.features.notifications.schedulePushSync(this)
+    }
 }
 
 @Composable
-fun HisabNavHost(startDest: String, sessionViewModel: SessionViewModel = hiltViewModel(), privacyViewModel: PrivacyViewModel = hiltViewModel()) {
+fun HisabNavHost(startDest: String, sessionViewModel: SessionViewModel = hiltViewModel(), privacyViewModel: PrivacyViewModel = hiltViewModel(),
+    pushNavigation: com.example.hisab.features.notifications.PushNavigation? = null) {
     val navController = rememberNavController()
     val isAdmin by sessionViewModel.isAdmin.collectAsState()
     val requiresSignIn by sessionViewModel.requiresSignIn.collectAsState()
@@ -148,6 +158,25 @@ fun HisabNavHost(startDest: String, sessionViewModel: SessionViewModel = hiltVie
     val privacyState by privacyViewModel.state.collectAsState()
     val backStack by navController.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
+    val actor by sessionViewModel.currentUserId.collectAsStateWithLifecycle()
+    val pending = pushNavigation?.pending?.collectAsStateWithLifecycle()?.value
+    LaunchedEffect(pending, actor, privacyState.gate, requiresSignIn) {
+        val event = pending ?: return@LaunchedEffect
+        if (requiresSignIn || actor != null && event.ownerId != actor) { pushNavigation?.consume(event); return@LaunchedEffect }
+        if (actor != event.ownerId || privacyState.gate != PrivacyGate.Continue) return@LaunchedEffect
+        val target = when (event.kind) {
+            "DEBT", "PAYMENT" -> "group_detail/${event.groupId}?entryId=${event.recordId}"
+            "INVITATION" -> "notifications"
+            "RECOVERY" -> "recovered_from_notification"
+            "UPDATE" -> "settings"
+            else -> return@LaunchedEffect
+        }
+        navController.navigate(target) { launchSingleTop = true }
+        pushNavigation?.consume(event)
+    }
+    if (route == "dashboard" && actor != null && privacyState.gate == PrivacyGate.Continue) {
+        com.example.hisab.features.notifications.PushPermissionPrompt()
+    }
 
     fun openLogin() {
         navController.navigate("login") {
@@ -215,6 +244,11 @@ fun HisabNavHost(startDest: String, sessionViewModel: SessionViewModel = hiltVie
             PrivacyDataScreen(onBack = { navController.popBackStack() },
                 onPolicy = { navController.navigate("privacy_policy") })
         }
+        composable("push_settings") { com.example.hisab.features.notifications.PushSettingsScreen(onBack = { navController.popBackStack() }) }
+        composable("recovered_from_notification") {
+            com.example.hisab.features.privacy.presentation.AccountDataScreen(onBack = { navController.popBackStack() },
+                onPolicy = { navController.navigate("privacy_policy") }, startRecovered = true)
+        }
 
         composable("password_recovery") {
             AccountRecoveryScreen(onBack = { navController.popBackStack() }, onHelp = { navController.navigate("faq") })
@@ -249,10 +283,11 @@ fun HisabNavHost(startDest: String, sessionViewModel: SessionViewModel = hiltVie
         }
 
         composable(
-            route = "group_detail/{groupId}",
-            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
-        ) {
+            route = "group_detail/{groupId}?entryId={entryId}",
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType }, navArgument("entryId") { type = NavType.StringType; defaultValue = "" })
+        ) { entry ->
             com.example.hisab.features.ledger.presentation.GroupDetailScreen(
+                notificationEntryId = entry.arguments?.getString("entryId"),
                 onNavigateBack = {
                     navController.popBackStack()
                 }
@@ -305,6 +340,7 @@ fun HisabNavHost(startDest: String, sessionViewModel: SessionViewModel = hiltVie
 
         composable("settings") {
             SettingsScreen(
+                onNotifications = { navController.navigate("push_settings") },
                 onProfile = { navController.navigate("profile") },
                 onAbout = { navController.navigate("about") },
                 onFaq = { navController.navigate("faq") },

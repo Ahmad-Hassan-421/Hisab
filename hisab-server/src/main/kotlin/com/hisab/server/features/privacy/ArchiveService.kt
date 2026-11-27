@@ -140,6 +140,8 @@ internal suspend fun deliverRecovery(id: String) = DB.transaction { session ->
     }
     DB.recoveryJobs.updateOne(session, eq("_id", id), Updates.combine(Updates.set("status", "ready"), Updates.set("completedAt", now)))
     DB.archives.updateOne(session, eq("_id", id), Updates.combine(Updates.set("status", "ready"), Updates.set("recoveredAt", now)))
+    com.hisab.server.features.notifications.queueNotification(session, actor, "RECOVERY", id, "Your Hisab is recovered",
+        "${source.getString("name")} is ready as a private read-only copy.")
 }
 
 internal suspend fun deleteRecovered(actor: String, id: String) = DB.transaction { session ->

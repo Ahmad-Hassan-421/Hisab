@@ -15,6 +15,7 @@ import com.hisab.server.features.releases.releaseRoutes
 import com.hisab.server.features.health.healthRoutes
 import com.hisab.server.features.paging.pagedRoutes
 import com.hisab.server.features.privacy.archiveRoutes
+import com.hisab.server.features.notifications.notificationRoutes
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.http.content.*
@@ -27,6 +28,7 @@ fun Application.configureRouting(uploadDirectory: File) {
         healthRoutes()
         pagedRoutes()
         archiveRoutes()
+        notificationRoutes()
         authRoutes()
         passwordRecoveryRoutes()
         adminRoutes()

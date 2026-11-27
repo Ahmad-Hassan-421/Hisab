@@ -21,6 +21,14 @@ import retrofit2.Response
 import retrofit2.http.*
 
 interface HisabApiService {
+    @POST("notifications/devices/revoke")
+    suspend fun revokePushDevice(@Body value: com.example.hisab.features.notifications.RevokePushDevice)
+    @GET("notifications/preferences")
+    suspend fun getPushPreferences(): com.example.hisab.features.notifications.PushSettings
+    @PUT("notifications/preferences")
+    suspend fun savePushPreferences(@Body value: com.example.hisab.features.notifications.PushPreferences, @Header("X-Hisab-Account") owner: String): com.example.hisab.features.notifications.PushSettings
+    @PUT("notifications/devices")
+    suspend fun registerPushDevice(@Body value: com.example.hisab.features.notifications.PushDevice, @Header("X-Hisab-Account") owner: String)
     @Streaming
     @GET("media/{id}")
     suspend fun downloadMedia(@Path("id") id: String): okhttp3.ResponseBody
@@ -73,6 +81,8 @@ interface HisabApiService {
     @GET("v2/entries/page")
     suspend fun getEntriesPage(@Query("groupId") groupId: String, @Query("cursor") cursor: String? = null,
         @Query("kind") kind: String = "all", @Query("otherUserId") otherUserId: String? = null): CursorPage<HisabEntryDto>
+    @GET("v2/entries/{id}")
+    suspend fun getEntry(@Path("id") entryId: String, @Query("groupId") groupId: String): HisabEntryDto
 
     @GET("v2/requests/page")
     suspend fun getRequestsPage(@Query("cursor") cursor: String? = null): CursorPage<HisabRequestDto>

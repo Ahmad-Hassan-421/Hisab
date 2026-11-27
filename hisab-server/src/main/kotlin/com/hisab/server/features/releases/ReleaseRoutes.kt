@@ -73,7 +73,7 @@ internal fun verifiedRelease(release: GitHubRelease, metadata: ReleaseManifest):
         metadata.sizeBytes, metadata.sha256, required = false)
 }
 
-private object GitHubReleaseClient {
+internal object GitHubReleaseClient {
     private val log = LoggerFactory.getLogger(GitHubReleaseClient::class.java)
     private const val GITHUB_RELEASE_URL = "https://api.github.com/repos/Ahmad-Hassan-421/Hisab/releases/latest"
 

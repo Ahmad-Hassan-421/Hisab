@@ -44,12 +44,11 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(onNavigateBack: () -> Unit, onAbout: () -> Unit, onFaq: () -> Unit, onPrivacy: () -> Unit,
-                   onProfile: () -> Unit = {}, viewModel: SettingsViewModel = hiltViewModel()) {
+                   onProfile: () -> Unit = {}, onNotifications: () -> Unit = {}, viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val download by viewModel.downloadStatus.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val account by viewModel.account.collectAsStateWithLifecycle()
-    val feedback = LocalHisabFeedback.current
     FeedbackEffect(state.feedback, if (state.feedbackError) FeedbackKind.ERROR else FeedbackKind.SUCCESS, viewModel::clearFeedback)
     val context = LocalContext.current
     val available = state.remoteRelease?.takeIf { state.updateAvailable }
@@ -108,14 +107,7 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onAbout: () -> Unit, onFaq: () ->
                 }
             }
             OutlinedCard(Modifier.fillMaxWidth()) {
-                SettingsRow("Notification settings", "Manage Hisab alerts in Android", Icons.Outlined.Notifications, {
-                    val intent = if (Build.VERSION.SDK_INT >= 26) Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                    else Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-                    runCatching { context.startActivity(intent) }.onFailure {
-                        feedback?.post?.invoke("Couldn't open Android notification settings.", FeedbackKind.ERROR)
-                    }
-                })
+                SettingsRow("Notification settings", "Alerts, categories and private previews", Icons.Outlined.Notifications, onNotifications)
             }
             SettingsSectionHeading("Application and support", Icons.Outlined.SystemUpdate)
             OutlinedCard(Modifier.fillMaxWidth()) {

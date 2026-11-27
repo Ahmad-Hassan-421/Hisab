@@ -47,8 +47,10 @@ import java.math.BigDecimal
 @Composable
 fun GroupDetailScreen(
     onNavigateBack: () -> Unit,
-    viewModel: GroupDetailViewModel = hiltViewModel()
+    viewModel: GroupDetailViewModel = hiltViewModel(),
+    notificationEntryId: String? = null
 ) {
+    LaunchedEffect(notificationEntryId) { viewModel.focusNotificationEntry(notificationEntryId) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val activeIds = uiState.group?.members.orEmpty().toSet()
     val activeMembers = uiState.members.filter { it.user.id in activeIds }
@@ -356,6 +358,19 @@ fun GroupDetailScreen(
                     item { com.example.hisab.ui.components.HisabDetailSkeleton() }
                 } else {
                     if (failure != null) item { RefreshFailure(failure, viewModel::loadData, !uiState.isLoading) }
+                    if (uiState.notificationEntry != null || uiState.notificationMessage != null) item(key = "notified-entry") {
+                        ElevatedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Transaction from your notification", style = MaterialTheme.typography.titleMedium)
+                            uiState.notificationEntry?.let { entry ->
+                                Text(if (entry.type == "REPAYMENT") "Payment" else "Debt")
+                                Text(com.example.hisab.features.ledger.presentation.components.formatLedgerAmount(BigDecimal.valueOf(entry.amount)))
+                                if (entry.description.isNotBlank()) Text(entry.description)
+                                Text(com.example.hisab.features.ledger.presentation.components.formatLedgerDate(entry.timestamp))
+                            }
+                            uiState.notificationMessage?.let { Text(it) }
+                            TextButton(onClick = viewModel::dismissNotificationEntry) { Text("Dismiss") }
+                        } }
+                    }
                     item {
                         OutlinedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
                             Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {

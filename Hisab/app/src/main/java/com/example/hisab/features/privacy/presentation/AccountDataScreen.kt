@@ -27,10 +27,14 @@ import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AccountDataScreen(onBack: () -> Unit, onPolicy: () -> Unit, viewModel: AccountDataViewModel = hiltViewModel()) {
+fun AccountDataScreen(onBack: () -> Unit, onPolicy: () -> Unit, viewModel: AccountDataViewModel = hiltViewModel(), startRecovered: Boolean = false) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lifecycle = LocalLifecycleOwner.current
     val feedback = LocalHisabFeedback.current
+    var notificationOpened by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(startRecovered) {
+        if (startRecovered && !notificationOpened) { notificationOpened = true; viewModel.open(DataPanel.RECOVERED) }
+    }
     var recover by remember { mutableStateOf<ArchiveCard?>(null) }
     var deleteCopy by remember { mutableStateOf<ArchiveCard?>(null) }
     var deleteAccount by remember { mutableStateOf<UserDto?>(null) }

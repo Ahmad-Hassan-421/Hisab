@@ -61,6 +61,7 @@ jobs:
           name: backend-reports
           path: |
             hisab-server/build/test-results/test/TEST-*.xml
+            hisab-server/build/test-results/notificationIntegrationTest/TEST-*.xml
             hisab-server/build/reports/tests/test/
             hisab-server/build/ci/gradle.lockfile
             ${{ runner.temp }}/hisab-backend/*.log
@@ -68,5 +69,7 @@ jobs:
             ${{ runner.temp }}/hisab-backend/pagination-regression.txt
             ${{ runner.temp }}/hisab-backend/archive-regression.txt
             ${{ runner.temp }}/hisab-backend/media-regression.txt
+            ${{ runner.temp }}/hisab-backend/notification-delivery.txt
+            ${{ runner.temp }}/hisab-backend/notification-api.txt
             ${{ runner.temp }}/hisab-backend/dependency-audit.json
           retention-days: 14

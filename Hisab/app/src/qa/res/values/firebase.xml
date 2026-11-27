@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Public Firebase client identifiers. Server credentials are never bundled. -->
+    <string name="google_app_id" translatable="false">1:300098454814:android:8d95ec7132986bbcd3750f</string>
+    <string name="gcm_defaultSenderId" translatable="false">300098454814</string>
+    <string name="google_api_key" translatable="false">AIzaSyBl8ACbZZR-f36YCqCuWwA1392n8Kf2F9o</string>
+    <string name="project_id" translatable="false">hisab-90ff2</string>
+</resources>

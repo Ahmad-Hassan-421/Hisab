@@ -48,7 +48,9 @@ internal suspend fun permanentlyDeleteAccount(actor: String, password: String, c
         }
         // Remove the account's private copies and anonymize its identity in other owners' historical copies.
         for (collection in listOf(DB.archives, DB.archiveRecords, DB.recovered, DB.recoveredRecords, DB.recoveryJobs,
-            DB.privacyRequests, DB.devices, DB.notificationOutbox)) collection.deleteMany(session, eq("ownerId", actor))
+            DB.privacyRequests, DB.devices, DB.notificationOutbox, DB.notificationDeliveries, DB.notificationPreferences)) collection.deleteMany(session, eq("ownerId", actor))
+        DB.notificationOutbox.updateMany(session, eq("actorId", actor), Updates.combine(Updates.set("actorId", anonymous),
+            Updates.set("title", "Hisab updated"), Updates.set("body", "Shared records changed. Open Hisab to view them.")))
         for (collection in listOf(DB.archiveRecords, DB.recoveredRecords)) {
             collection.updateMany(session, and(eq("kind", "member"), eq("originalId", actor)), Updates.combine(
                 Updates.set("originalId", anonymous), Updates.set("name", "Deleted account"), Updates.unset("profilePicUrl")))

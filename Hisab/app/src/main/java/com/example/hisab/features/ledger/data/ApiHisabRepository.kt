@@ -20,6 +20,7 @@ class ApiHisabRepository @Inject constructor(
     private val cacheUpdates = Mutex()
 
     override suspend fun getOverview(groupId: String) = api.getLedgerOverview(groupId)
+    override suspend fun getEntry(groupId: String, entryId: String) = api.getEntry(entryId, groupId).toEntity()
 
     override suspend fun getEntriesPage(groupId: String, cursor: String?, kind: String, otherUserId: String?) =
         api.getEntriesPage(groupId, cursor, kind, otherUserId).let { page ->

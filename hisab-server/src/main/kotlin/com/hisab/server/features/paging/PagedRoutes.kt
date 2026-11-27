@@ -64,6 +64,14 @@ fun Route.pagedRoutes() {
                 call.response.header(HttpHeaders.CacheControl, "no-store")
                 call.respond(dashboardSummary(call.authenticatedUserId))
             }
+            get("/entries/{id}") {
+                val group = call.request.queryParameters["groupId"] ?: throw RequestFailure(HttpStatusCode.BadRequest, "Hisab required")
+                call.requireGroupMember(group) ?: return@get
+                val row = MongoClientProvider.entries.findOne(Filters.and(Filters.eq("_id", call.parameters["id"].orEmpty()), Filters.eq("groupId", group)))
+                    ?: throw RequestFailure(HttpStatusCode.NotFound, "This transaction is no longer available")
+                call.response.header(HttpHeaders.CacheControl, "no-store")
+                call.respond(row)
+            }
             get("/groups/page") {
                 val actor = call.authenticatedUserId
                 val page = call.pageQuery("groups:$actor")

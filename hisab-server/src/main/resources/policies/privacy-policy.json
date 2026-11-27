@@ -1,7 +1,7 @@
 {
-  "version": "2026-11-25",
-  "acknowledgmentVersion": "2026-11-25",
-  "effectiveDate": "25 November 2026",
+  "version": "2026-11-27",
+  "acknowledgmentVersion": "2026-11-27",
+  "effectiveDate": "27 November 2026",
   "sections": [
     {
       "title": "About Hisab",
@@ -18,6 +18,10 @@
     {
       "title": "Shared ledgers and invitations",
       "body": "Hisab stores group names, membership and invitation records, and the amounts, descriptions, dates and people involved in ledger entries. Current group members can see the shared ledger, including entries that involve former members. Invitations identify the group and sender to the recipient. Your Hisab ID lets other users find your display name and invite you. Keep passwords, bank details and other unrelated private information out of descriptions and group names."
+    },
+    {
+      "title": "Notifications",
+      "body": "If you enable alerts on a device, Hisab uses Google Firebase Cloud Messaging to deliver debt, payment, invitation, recovery and official release notifications. Firebase processes an app installation identifier, messaging token and device/app information needed for delivery. Hisab stores your account's category and preview preferences, device registration, app version and delivery state. Financial previews are off by default; enabling them can include shared ledger details in the message payload. Lock-screen previews remain private. Queued events and delivery records expire after seven days, and inactive device registrations expire after 45 days without refresh. Signing out suppresses prior-account messages immediately and queues device revocation if offline. Notification delivery depends on network and Android background controls."
     },
     {
       "title": "Storage and service providers",

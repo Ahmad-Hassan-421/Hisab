@@ -52,6 +52,9 @@ class DashboardViewModel @Inject constructor(
 
     init {
         startPollingGroups()
+        viewModelScope.launch { sessionManager.activityUpdates.collectLatest {
+            if (_uiState.subscriptionCount.value > 0) refreshGroups(userInitiated = false)
+        } }
     }
 
     private fun startPollingGroups() {

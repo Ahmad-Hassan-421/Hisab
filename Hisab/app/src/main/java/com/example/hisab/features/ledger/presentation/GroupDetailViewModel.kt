@@ -84,7 +84,9 @@ data class GroupDetailUiState(
     val suggestionCursor: String? = null,
     val loadingSuggestions: Boolean = false,
     val suggestionFailure: AppFailure? = null,
-    val isSavingPicture: Boolean = false
+    val isSavingPicture: Boolean = false,
+    val notificationEntry: HisabEntry? = null,
+    val notificationMessage: String? = null
 )
 
 @HiltViewModel
@@ -99,6 +101,8 @@ class GroupDetailViewModel @Inject constructor(
 ) : ViewModel() {
 
     val groupId: String = savedStateHandle.get<String>("groupId") ?: ""
+    private var notificationEntryId: String? = savedStateHandle.get<String>("entryId")?.takeIf { it.isNotBlank() }
+    private var handledNotificationEntry: String? = null
 
     private val _uiState = MutableStateFlow(GroupDetailUiState())
     val uiState: StateFlow<GroupDetailUiState> = _uiState.asStateFlow()
@@ -113,6 +117,9 @@ class GroupDetailViewModel @Inject constructor(
     private var pictureGeneration = 0L
 
     init {
+        viewModelScope.launch { sessionManager.activityUpdates.collectLatest { changed ->
+            if (changed == groupId && _uiState.subscriptionCount.value > 0) loadData()
+        } }
         viewModelScope.launch {
             sessionManager.currentUserId.collectLatest { userId ->
                 ledgerObservation?.cancel()
@@ -151,6 +158,20 @@ class GroupDetailViewModel @Inject constructor(
                         dto.profilePicUrl.orEmpty(), dto.themePreference ?: "system", dto.role ?: "user",
                         dto.uniqueId.orEmpty(), dto.createdAt ?: 0, dto.updatedAt ?: 0) }
                     applyOverview(remoteOverview, (listOf(self) + page.items).distinctBy { it.id }, refreshed = true)
+                    notificationEntryId?.let { entryId ->
+                        handledNotificationEntry = entryId
+                        notificationEntryId = null
+                        try {
+                            val entry = hisabRepository.getEntry(groupId, entryId)
+                            if (sessionManager.currentUserId.value == uid) _uiState.update { it.copy(notificationEntry = entry,
+                                notificationMessage = if (entry == null) "This transaction is no longer available." else null) }
+                        } catch (cancelled: CancellationException) { throw cancelled }
+                        catch (error: Exception) {
+                            if (sessionManager.currentUserId.value == uid) _uiState.update {
+                                it.copy(notificationMessage = if (error is retrofit2.HttpException && error.code() == 404) "This transaction is no longer available." else failures.report("Open notified transaction", error).message)
+                            }
+                        }
+                    }
                     _uiState.update { it.copy(nextMemberCursor = page.nextCursor, loadingMembers = false, memberPageFailure = null) }
                     return@launch
                 }
@@ -285,6 +306,13 @@ class GroupDetailViewModel @Inject constructor(
     }
 
     fun reportPictureError() { _uiState.update { it.copy(requestError = "Couldn't open that picture. Choose another image.") } }
+    fun dismissNotificationEntry() { _uiState.update { it.copy(notificationEntry = null, notificationMessage = null) } }
+    fun focusNotificationEntry(id: String?) {
+        if (id.isNullOrBlank() || id == handledNotificationEntry || !runCatching { java.util.UUID.fromString(id).toString() == id }.getOrDefault(false)) return
+        notificationEntryId = id
+        handledNotificationEntry = id
+        if (_uiState.value.group != null) loadData()
+    }
 
     fun refreshPictures() {
         val actor = sessionManager.currentUserId.value ?: return

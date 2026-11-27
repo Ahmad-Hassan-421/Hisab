@@ -42,6 +42,8 @@ python3 scripts/qa/check_api.py --extended --port 18081 | tee "$report_dir/api-r
 HISAB_QA_MONGO_CONTAINER="$container" python3 scripts/qa/check_pagination.py --port 18081 | tee "$report_dir/pagination-regression.txt"
 python3 -m venv "$report_dir/qa-python"
 "$report_dir/qa-python/bin/python" -m pip install --disable-pip-version-check 'pymongo==4.19.0'
+"$report_dir/qa-python/bin/python" scripts/qa/check_notifications.py | tee "$report_dir/notification-api.txt"
+(cd hisab-server && MONGO_DATABASE=hisab_phase_notification_ci bash ./gradlew --no-daemon notificationIntegrationTest) | tee "$report_dir/notification-delivery.txt"
 "$report_dir/qa-python/bin/python" scripts/qa/check_media.py --restart-file "$report_dir/../hisab-media-restart.json" | tee "$report_dir/media-regression.txt"
 "$report_dir/qa-python/bin/python" scripts/qa/check_archives.py | tee "$report_dir/archive-regression.txt"
 
