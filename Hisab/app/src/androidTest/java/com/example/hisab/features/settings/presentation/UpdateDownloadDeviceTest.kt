@@ -37,6 +37,14 @@ class UpdateDownloadDeviceTest {
         val manager = withContext(Dispatchers.Main) { ApkUpdateManager(context, failures) }
         withTimeout(15_000) { manager.status.first { it !is UpdateDownloadStatus.Preparing } }
         withContext(Dispatchers.Main) { manager.startDownload(release) }
+        val started = withTimeout(60_000) { manager.status.first {
+            it is UpdateDownloadStatus.Downloading && it.bytes >= 65_536 || it is UpdateDownloadStatus.Error || it is UpdateDownloadStatus.Ready
+        } }
+        assertTrue("Expected an active throttled fixture download; received $started", started is UpdateDownloadStatus.Downloading)
+        withContext(Dispatchers.Main) { manager.cancel() }
+        assertTrue(manager.status.value is UpdateDownloadStatus.Cancelled)
+        assertTrue(context.getSharedPreferences("app_update_download", Context.MODE_PRIVATE).all.isEmpty())
+        withContext(Dispatchers.Main) { manager.startDownload(release) }
         val result = withTimeout(120_000) { manager.status.first { it is UpdateDownloadStatus.Ready || it is UpdateDownloadStatus.Error } }
         assertTrue("Expected verified APK; received $result", result is UpdateDownloadStatus.Ready)
         val ready = result as UpdateDownloadStatus.Ready
