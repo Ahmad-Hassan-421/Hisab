@@ -12,7 +12,8 @@ class TokenInterceptor @Inject constructor(
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
-        if (request.url.encodedPath in setOf("/auth/login", "/auth/register", "/auth/recovery/request", "/auth/recovery/reset", "/privacy/policy")) {
+        if (request.url.encodedPath in setOf("/auth/login", "/auth/register", "/auth/recovery/request", "/auth/recovery/reset", "/privacy/policy",
+                "/api/releases/latest", "/releases/latest", "/health")) {
             return chain.proceed(request)
         }
 

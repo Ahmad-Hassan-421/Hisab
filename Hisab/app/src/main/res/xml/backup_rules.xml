@@ -3,6 +3,7 @@
     <include domain="database" path="hisab.db" />
     <include domain="sharedpref" path="." />
     <exclude domain="sharedpref" path="secret_shared_prefs.xml" />
+    <exclude domain="sharedpref" path="app_update_download.xml" />
     <exclude domain="sharedpref" path="push_private_state.xml" />
     <exclude domain="sharedpref" path="com.google.firebase.messaging.xml" />
     <include domain="file" path="profile_pictures/" />

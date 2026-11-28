@@ -21,6 +21,19 @@ class ReleaseManifestTest {
     }
 
     @Test
+    fun rejectsUnpublishedReleasesAndPreservesMinimumVersionPolicy() {
+        assertNull(verifiedRelease(release.copy(draft = true), manifest))
+        assertNull(verifiedRelease(release.copy(prerelease = true), manifest))
+        assertNull(verifiedRelease(release.copy(publishedAt = "bad-date"), manifest))
+        assertNull(verifiedRelease(release, manifest.copy(minimumSupportedVersionCode = 13)))
+        val update = checkNotNull(verifiedRelease(release.copy(publishedAt = "2026-11-28T00:00:00Z"),
+            manifest.copy(minimumSupportedVersionCode = 11, required = true)))
+        assertEquals(11, update.minimumSupportedVersionCode)
+        assertEquals(true, update.required)
+        assertEquals("2026-11-28T00:00:00Z", update.releaseDate)
+    }
+
+    @Test
     fun rejectsInconsistentOrUntrustedGitHubAssetMetadata() {
         assertNull(verifiedRelease(release, manifest.copy(sha256 = "0".repeat(64))))
         assertNull(verifiedRelease(release, manifest.copy(applicationId = "com.example.hisab.qa")))

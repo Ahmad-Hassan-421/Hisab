@@ -57,6 +57,52 @@ class ApkUpdateManager @Inject constructor(
     val status = _status.asStateFlow()
     private var job: Job? = null
     private var downloadId: Long? = null
+    private val saved = context.getSharedPreferences("app_update_download", Context.MODE_PRIVATE)
+    private val gson = com.google.gson.Gson()
+
+    init {
+        _status.value = UpdateDownloadStatus.Preparing
+        job = scope.launch {
+            try {
+                val raw = saved.getString("release", null)
+                val release = raw?.let { gson.fromJson(it, com.example.hisab.features.settings.data.AppUpdateResponse::class.java) }
+                    ?.validate(BuildConfig.API_BASE_URL.takeIf { BuildConfig.UPDATE_QA })
+                if (release == null || !release.isNewerThan(BuildConfig.VERSION_CODE)) {
+                    removeDownload(); clearSaved(); cleanupFiles(); _status.value = UpdateDownloadStatus.Idle
+                } else if (saved.getBoolean("ready", false)) {
+                    val file = File(context.filesDir, "updates/hisab-update.apk")
+                    withContext(Dispatchers.IO) { verifyPackage(file, release) }
+                    _status.value = UpdateDownloadStatus.Ready(file, release.versionName)
+                } else {
+                    val id = saved.getLong("id", -1)
+                    val filename = saved.getString("filename", "").orEmpty()
+                    if (id < 0 || !Regex("hisab-[a-f0-9-]{36}\\.apk").matches(filename)) throw UpdateProblem("The download was interrupted. Download the update again.")
+                    downloadId = id
+                    val directory = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: throw UpdateProblem("Update storage is unavailable.")
+                    monitorDownload(id, File(directory, "updates/$filename"), release)
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) {
+                removeDownload(); clearSaved(); cleanupFiles()
+                _status.value = UpdateDownloadStatus.Error("The saved download couldn't be restored. Download the update again.")
+            }
+        }
+    }
+
+    private fun persist(release: VerifiedUpdate, id: Long, filename: String, ready: Boolean = false) {
+        val metadata = com.example.hisab.features.settings.data.AppUpdateResponse(release.versionCode, release.versionName,
+            release.releaseNotes, release.downloadUrl, release.sizeBytes, release.sha256, release.required,
+            release.releaseDate, release.minimumSupportedVersionCode)
+        check(saved.edit().putString("release", gson.toJson(metadata)).putLong("id", id)
+            .putString("filename", filename).putBoolean("ready", ready).commit())
+    }
+    private fun clearSaved() { saved.edit().clear().apply() }
+    private fun cleanupFiles() {
+        File(context.filesDir, "updates").listFiles()?.filter { it.isFile }?.forEach { it.delete() }
+        context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.let { directory ->
+            File(directory, "updates").listFiles()?.filter { it.isFile }?.forEach { it.delete() }
+        }
+    }
 
     @MainThread
     fun startDownload(release: VerifiedUpdate) {
@@ -65,7 +111,7 @@ class ApkUpdateManager @Inject constructor(
         _status.value = UpdateDownloadStatus.Downloading(0, release.sizeBytes)
         job = scope.launch {
             try {
-                removeDownload()
+                removeDownload(); clearSaved(); cleanupFiles()
                 val directory = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
                     ?: throw UpdateProblem("Update storage is unavailable. Try again later.")
                 if (release.sizeBytes > directory.usableSpace || release.sizeBytes > context.filesDir.usableSpace) {
@@ -84,34 +130,40 @@ class ApkUpdateManager @Inject constructor(
                     setAllowedOverRoaming(false)
                 }
                 val id = service.enqueue(request).also { downloadId = it }
-                while (isActive) {
-                    val query = withContext(Dispatchers.IO) { readDownload(id) }
-                    when (query.state) {
-                        DownloadManager.STATUS_PENDING, DownloadManager.STATUS_RUNNING ->
-                            _status.value = UpdateDownloadStatus.Downloading(query.bytes, query.total ?: release.sizeBytes)
-                        DownloadManager.STATUS_PAUSED ->
-                            _status.value = UpdateDownloadStatus.Paused(pausedMessage(query.reason))
-                        DownloadManager.STATUS_FAILED -> throw UpdateProblem(downloadFailureMessage(query.reason))
-                        DownloadManager.STATUS_SUCCESSFUL -> {
-                            _status.value = UpdateDownloadStatus.Preparing
-                            val verified = withContext(Dispatchers.IO) { stageVerifiedPackage(file, release) }
-                            removeDownload()
-                            _status.value = UpdateDownloadStatus.Ready(verified, release.versionName)
-                            return@launch
-                        }
-                        else -> throw UpdateProblem("The download is no longer available. Please try again.")
-                    }
-                    delay(400)
-                }
+                persist(release, id, filename)
+                monitorDownload(id, file, release)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 if (e !is UpdateProblem) failures.report("Download app update", e)
-                removeDownload()
+                removeDownload(); clearSaved(); cleanupFiles()
                 _status.value = UpdateDownloadStatus.Error(
                     e.message.takeIf { e is UpdateProblem } ?: "Couldn’t download the update. Please try again."
                 )
             }
+        }
+    }
+
+    private suspend fun monitorDownload(id: Long, file: File, release: VerifiedUpdate) {
+        while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+            val query = withContext(Dispatchers.IO) { readDownload(id) }
+            when (query.state) {
+                DownloadManager.STATUS_PENDING, DownloadManager.STATUS_RUNNING ->
+                    _status.value = UpdateDownloadStatus.Downloading(query.bytes, query.total ?: release.sizeBytes)
+                DownloadManager.STATUS_PAUSED ->
+                    _status.value = UpdateDownloadStatus.Paused(pausedMessage(query.reason))
+                DownloadManager.STATUS_FAILED -> throw UpdateProblem(downloadFailureMessage(query.reason))
+                DownloadManager.STATUS_SUCCESSFUL -> {
+                    _status.value = UpdateDownloadStatus.Preparing
+                    val verified = withContext(Dispatchers.IO) { stageVerifiedPackage(file, release) }
+                    persist(release, id, file.name, ready = true)
+                    removeDownload()
+                    _status.value = UpdateDownloadStatus.Ready(verified, release.versionName)
+                    return
+                }
+                else -> throw UpdateProblem("The download is no longer available. Please try again.")
+            }
+            delay(400)
         }
     }
 
@@ -120,7 +172,7 @@ class ApkUpdateManager @Inject constructor(
         if (_status.value !is UpdateDownloadStatus.Downloading && _status.value !is UpdateDownloadStatus.Paused) return
         job?.cancel()
         job = null
-        removeDownload()
+        removeDownload(); clearSaved(); cleanupFiles()
         _status.value = UpdateDownloadStatus.Cancelled
     }
 
@@ -154,7 +206,7 @@ class ApkUpdateManager @Inject constructor(
     }
 
     private fun removeDownload() {
-        val id = downloadId ?: return
+        val id = downloadId ?: saved.getLong("id", -1).takeIf { it >= 0 } ?: return
         downloadId = null
         runCatching { service.remove(id) }.onFailure { failures.report("Remove app update", it) }
     }

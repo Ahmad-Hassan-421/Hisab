@@ -10,11 +10,13 @@ data class AppUpdateResponse(
     @SerializedName("downloadUrl") val downloadUrl: String?,
     @SerializedName("sizeBytes") val sizeBytes: Long?,
     @SerializedName("sha256") val sha256: String?,
-    @SerializedName("required") val required: Boolean = false
+    @SerializedName("required") val required: Boolean = false,
+    @SerializedName("releaseDate") val releaseDate: String? = null,
+    @SerializedName("minimumSupportedVersionCode") val minimumSupportedVersionCode: Int? = null
 ) {
     internal fun validate(qaOrigin: String?): VerifiedUpdate? {
         val name = versionName?.takeIf(versionPattern::matches) ?: return null
-        val size = sizeBytes?.takeIf { it > 0 } ?: return null
+        val size = sizeBytes?.takeIf { it in 1..536_870_912L } ?: return null
         val digest = sha256?.takeIf(digestPattern::matches) ?: return null
         val url = downloadUrl?.toHttpUrlOrNull() ?: return null
         val expectedUrl = "https://github.com/Ahmad-Hassan-421/Hisab/releases/download/v$name/hisab-v$name.apk"
@@ -24,7 +26,10 @@ data class AppUpdateResponse(
             url.username.isEmpty() && url.password.isEmpty() && url.query == null && url.fragment == null
         val correctChannel = if (qaOrigin == null) downloadUrl == expectedUrl else qaDownload
         if (versionCode !in 1..2_100_000_000 || !correctChannel) return null
-        return VerifiedUpdate(versionCode, name, releaseNotes.orEmpty(), url.toString(), size, digest)
+        if (minimumSupportedVersionCode?.let { it !in 1..versionCode } == true ||
+            releaseDate?.let { releaseDateMillis(it) == null } == true) return null
+        return VerifiedUpdate(versionCode, name, releaseNotes.orEmpty().take(4_000), url.toString(), size, digest,
+            required, releaseDate, minimumSupportedVersionCode)
     }
 
     private companion object {
@@ -33,13 +38,26 @@ data class AppUpdateResponse(
     }
 }
 
+internal fun releaseDateMillis(value: String): Long? {
+    if (!Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z").matches(value)) return null
+    val formatter = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+        isLenient = false; timeZone = java.util.TimeZone.getTimeZone("UTC")
+    }
+    return runCatching { formatter.parse(value)?.time }.getOrNull()
+}
+
 data class VerifiedUpdate internal constructor(
     val versionCode: Int,
     val versionName: String,
     val releaseNotes: String,
     val downloadUrl: String,
     val sizeBytes: Long,
-    val sha256: String
+    val sha256: String,
+    val required: Boolean = false,
+    val releaseDate: String? = null,
+    val minimumSupportedVersionCode: Int? = null
 ) {
     internal fun isNewerThan(installedVersionCode: Int): Boolean = versionCode > installedVersionCode
+    internal fun isRequiredFor(installedVersionCode: Int): Boolean = required ||
+        minimumSupportedVersionCode?.let { installedVersionCode < it } == true
 }

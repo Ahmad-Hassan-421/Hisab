@@ -31,7 +31,10 @@ data class GitHubAsset(
 data class GitHubRelease(
     @SerialName("tag_name") val tagName: String,
     val body: String? = null,
-    val assets: List<GitHubAsset> = emptyList()
+    val assets: List<GitHubAsset> = emptyList(),
+    @SerialName("published_at") val publishedAt: String? = null,
+    val draft: Boolean = false,
+    val prerelease: Boolean = false
 )
 
 @Serializable
@@ -42,7 +45,9 @@ data class AppUpdateResponse(
     val downloadUrl: String,
     val sizeBytes: Long,
     val sha256: String,
-    val required: Boolean
+    val required: Boolean,
+    val releaseDate: String? = null,
+    val minimumSupportedVersionCode: Int? = null
 )
 
 @Serializable
@@ -51,7 +56,9 @@ internal data class ReleaseManifest(
     val versionCode: Int,
     val applicationId: String,
     val sizeBytes: Long,
-    val sha256: String
+    val sha256: String,
+    val minimumSupportedVersionCode: Int? = null,
+    val required: Boolean = false
 )
 
 private const val releaseBase = "https://github.com/Ahmad-Hassan-421/Hisab/releases/download/"
@@ -60,9 +67,11 @@ private val sha256Pattern = Regex("[a-f0-9]{64}")
 private const val manifestName = "hisab-update.json"
 
 internal fun verifiedRelease(release: GitHubRelease, metadata: ReleaseManifest): AppUpdateResponse? {
-    if (!releaseTag.matches(release.tagName) || metadata.versionName != release.tagName.removePrefix("v") ||
+    if (release.draft || release.prerelease || !releaseTag.matches(release.tagName) || metadata.versionName != release.tagName.removePrefix("v") ||
         metadata.applicationId != "com.example.hisab" || metadata.versionCode !in 1..2_100_000_000 ||
-        metadata.sizeBytes <= 0 || !sha256Pattern.matches(metadata.sha256)) return null
+        metadata.sizeBytes !in 1..536_870_912L || !sha256Pattern.matches(metadata.sha256) ||
+        metadata.minimumSupportedVersionCode?.let { it !in 1..metadata.versionCode } == true ||
+        release.publishedAt?.let { runCatching { java.time.Instant.parse(it) }.isFailure } == true) return null
     val apkName = "hisab-${release.tagName}.apk"
     val apk = release.assets.singleOrNull { it.name == apkName } ?: return null
     val url = "$releaseBase${release.tagName}/$apkName"
@@ -70,7 +79,9 @@ internal fun verifiedRelease(release: GitHubRelease, metadata: ReleaseManifest):
         return null
     }
     return AppUpdateResponse(metadata.versionCode, metadata.versionName, release.body.orEmpty().take(4_000), url,
-        metadata.sizeBytes, metadata.sha256, required = false)
+        metadata.sizeBytes, metadata.sha256, metadata.required,
+        release.publishedAt?.let { java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss'Z'")
+            .withZone(java.time.ZoneOffset.UTC).format(java.time.Instant.parse(it)) }, metadata.minimumSupportedVersionCode)
 }
 
 internal object GitHubReleaseClient {
@@ -134,6 +145,7 @@ internal object GitHubReleaseClient {
 
 fun Route.releaseRoutes() {
     val handleLatestRelease: suspend (ApplicationCall) -> Unit = { call ->
+        call.response.header(HttpHeaders.CacheControl, "no-store")
         val (status, result) = GitHubReleaseClient.fetchLatestRelease()
         if (result != null) call.respond(status, result)
         else if (status == HttpStatusCode.NoContent) call.respond(status)

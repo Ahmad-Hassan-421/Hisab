@@ -1,17 +1,12 @@
 package com.example.hisab.features.settings.presentation
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.hisab.BuildConfig
-import com.example.hisab.features.settings.data.VerifiedUpdate
-import com.example.hisab.features.settings.domain.UpdateRepository
 import com.example.hisab.util.ApkUpdateManager
 import com.example.hisab.util.FailureReporter
 import com.example.hisab.util.ThemeMode
 import com.example.hisab.util.ThemePreferencesManager
 import com.example.hisab.util.UpdateDownloadStatus
-import com.google.gson.JsonParseException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,13 +23,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 
 data class SettingsUiState(
-    val isCheckingForUpdate: Boolean = false,
-    val updateAvailable: Boolean = false,
-    val remoteRelease: VerifiedUpdate? = null,
-    val updateCheckComplete: Boolean = false,
-    val currentVersionCode: Int = BuildConfig.VERSION_CODE,
-    val currentVersionName: String = BuildConfig.VERSION_NAME,
-    val checkError: String? = null,
     val savingTheme: Boolean = false,
     val feedback: String? = null,
     val feedbackError: Boolean = false
@@ -42,7 +30,7 @@ data class SettingsUiState(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val updateRepository: UpdateRepository,
+    val updates: UpdateCoordinator,
     private val apkUpdateManager: ApkUpdateManager,
     private val themePreferencesManager: ThemePreferencesManager,
     private val failures: FailureReporter,
@@ -61,59 +49,7 @@ class SettingsViewModel @Inject constructor(
     val themeMode: StateFlow<ThemeMode> = themePreferencesManager.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), themePreferencesManager.cachedThemeMode())
 
-    init {
-        checkForUpdates()
-    }
-
-    fun checkForUpdates() {
-        if (_uiState.value.isCheckingForUpdate) return
-        if (BuildConfig.DEBUG && !BuildConfig.UPDATE_QA) {
-            _uiState.update { it.copy(checkError = "Use the release build to check for Hisab updates.") }
-            return
-        }
-        _uiState.update { it.copy(isCheckingForUpdate = true, checkError = null) }
-        viewModelScope.launch {
-            try {
-                val release = updateRepository.getLatestRelease()?.let {
-                    it.validate(BuildConfig.API_BASE_URL.takeIf { BuildConfig.UPDATE_QA })
-                        ?: throw JsonParseException("Invalid update metadata")
-                }
-                val isNewer = release?.isNewerThan(BuildConfig.VERSION_CODE) == true
-                _uiState.update {
-                    it.copy(
-                        isCheckingForUpdate = false,
-                        updateAvailable = isNewer,
-                        remoteRelease = release,
-                        updateCheckComplete = true,
-                        checkError = null
-                    )
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                val failure = failures.report("Check for updates", e)
-                _uiState.update {
-                    it.copy(
-                        isCheckingForUpdate = false,
-                        updateAvailable = false,
-                        remoteRelease = null,
-                        updateCheckComplete = false,
-                        checkError = failure.message
-                    )
-                }
-            }
-        }
-    }
-
-    fun startUpdateDownload(release: VerifiedUpdate) {
-        val state = _uiState.value
-        if (!state.updateAvailable || state.isCheckingForUpdate || state.remoteRelease != release) return
-        apkUpdateManager.startDownload(release)
-    }
-
-    fun installApk(context: Context) {
-        apkUpdateManager.promptInstall(context)
-    }
+    fun checkForUpdates() = updates.check(UpdateTrigger.MANUAL)
 
     fun setThemeMode(mode: ThemeMode) {
         if (_uiState.value.savingTheme || mode == themeMode.value) return

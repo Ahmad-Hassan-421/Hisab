@@ -46,9 +46,12 @@ private fun PermissionChoice(show: Boolean, onDecide: (Boolean) -> Unit, onDismi
 }
 
 @Composable
-fun PushPermissionPrompt(viewModel: PushViewModel = hiltViewModel()) {
+fun PushPermissionPrompt(blocked: Boolean = false, onVisibility: (Boolean) -> Unit = {}, viewModel: PushViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    PermissionChoice(state.owner != null && !state.asked, viewModel::decide, {})
+    val showing = state.owner != null && !state.asked && !blocked
+    SideEffect { onVisibility(showing) }
+    DisposableEffect(Unit) { onDispose { onVisibility(false) } }
+    PermissionChoice(showing, viewModel::decide, {})
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

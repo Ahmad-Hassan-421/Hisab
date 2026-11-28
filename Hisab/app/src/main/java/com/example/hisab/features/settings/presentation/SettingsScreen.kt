@@ -46,28 +46,13 @@ import kotlin.math.roundToInt
 fun SettingsScreen(onNavigateBack: () -> Unit, onAbout: () -> Unit, onFaq: () -> Unit, onPrivacy: () -> Unit,
                    onProfile: () -> Unit = {}, onNotifications: () -> Unit = {}, viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val update by viewModel.updates.state.collectAsStateWithLifecycle()
     val download by viewModel.downloadStatus.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val account by viewModel.account.collectAsStateWithLifecycle()
     FeedbackEffect(state.feedback, if (state.feedbackError) FeedbackKind.ERROR else FeedbackKind.SUCCESS, viewModel::clearFeedback)
-    val context = LocalContext.current
-    val available = state.remoteRelease?.takeIf { state.updateAvailable }
-    val busy = download is UpdateDownloadStatus.Downloading || download is UpdateDownloadStatus.Paused ||
-        download is UpdateDownloadStatus.Preparing
-    var confirmUrl by rememberSaveable { mutableStateOf<String?>(null) }
-    var confirmVersion by rememberSaveable { mutableStateOf<String?>(null) }
-    val intended = available?.takeIf { it.downloadUrl == confirmUrl && it.versionName == confirmVersion }
-    if (intended != null) {
-        HisabAlert(
-            kind = AlertKind.CONFIRM,
-            title = "Update to Hisab ${intended.versionName}?",
-            message = "Hisab will download the update. You’ll review the installation in Android before it starts.",
-            confirmLabel = "Update now",
-            dismissLabel = "Later",
-            onDismiss = { confirmUrl = null; confirmVersion = null },
-            onConfirm = { confirmUrl = null; confirmVersion = null; viewModel.startUpdateDownload(intended) }
-        )
-    }
+    val available = update.release
+    val busy = download is UpdateDownloadStatus.Downloading || download is UpdateDownloadStatus.Paused || download is UpdateDownloadStatus.Preparing
 
     Scaffold(
         topBar = {
@@ -113,67 +98,22 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onAbout: () -> Unit, onFaq: () ->
             OutlinedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Application updates", style = MaterialTheme.typography.titleMedium)
-                    OutlinedButton(onClick = viewModel::checkForUpdates, enabled = !state.isCheckingForUpdate && !busy) {
-                        ActionLabel("Check for updates", "Checking for updates…", state.isCheckingForUpdate)
+                    OutlinedButton(onClick = viewModel::checkForUpdates, enabled = !update.checking && !busy) {
+                        ActionLabel("Check for updates", "Checking for updates…", update.checking)
                     }
-                    val error = state.checkError
+                    val error = update.error
                     if (error != null) {
                         UpdateMessage(error, error = true)
-                    } else if (!state.isCheckingForUpdate && state.updateCheckComplete && available == null) {
+                    } else if (!update.checking && update.checked && available == null) {
                         UpdateMessage("Hisab is up to date.")
                     }
                 }
             }
             if (available != null || download !is UpdateDownloadStatus.Idle) {
-                ElevatedCard(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        available?.let { release ->
-                            Text("Version ${release.versionName} available", style = MaterialTheme.typography.titleMedium)
-                            Text("Download size: ${Formatter.formatFileSize(context, release.sizeBytes)}")
-                            val notes = release.releaseNotes.orEmpty().trim()
-                            Text(notes.take(600).ifBlank { "Release notes aren’t available." }, style = MaterialTheme.typography.bodyMedium)
-                        }
-                        when (val current = download) {
-                            is UpdateDownloadStatus.Downloading -> {
-                                UpdateMessage("Downloading update…")
-                                val progress = current.fraction
-                                if (progress == null) LinearProgressIndicator(Modifier.fillMaxWidth())
-                                else {
-                                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
-                                    Text("${(progress * 100).roundToInt()}% downloaded")
-                                }
-                            }
-                            is UpdateDownloadStatus.Paused -> UpdateMessage(current.message)
-                            UpdateDownloadStatus.Preparing -> {
-                                UpdateMessage("Preparing installation…")
-                                LinearProgressIndicator(Modifier.fillMaxWidth())
-                            }
-                            is UpdateDownloadStatus.Ready -> {
-                                UpdateMessage("Hisab ${current.version} is ready to install.")
-                                if (current.permissionNeeded) {
-                                    Text("Allow Hisab to open the installer in Android Settings, then return and choose Install update again.")
-                                }
-                                Button(onClick = { viewModel.installApk(context) }) { Text("Install update") }
-                            }
-                            is UpdateDownloadStatus.InstallerOpened -> {
-                                UpdateMessage("Android installer opened. Finish the update there.")
-                                OutlinedButton(onClick = { viewModel.installApk(context) }) { Text("Open installer again") }
-                            }
-                            is UpdateDownloadStatus.Error -> UpdateMessage(current.message, error = true)
-                            UpdateDownloadStatus.Cancelled -> UpdateMessage("Download cancelled.")
-                            UpdateDownloadStatus.Idle -> Unit
-                        }
-                        if (download is UpdateDownloadStatus.Downloading || download is UpdateDownloadStatus.Paused) {
-                            TextButton(onClick = viewModel::cancelUpdateDownload) { Text("Cancel download") }
-                        } else if (available != null && (download is UpdateDownloadStatus.Idle ||
-                            download is UpdateDownloadStatus.Error || download is UpdateDownloadStatus.Cancelled)) {
-                            Button(
-                                onClick = { confirmUrl = available.downloadUrl; confirmVersion = available.versionName },
-                                enabled = !state.isCheckingForUpdate
-                            ) {
-                                Text(if (download is UpdateDownloadStatus.Idle) "Update now" else "Retry download")
-                            }
-                        }
+                OutlinedCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(available?.let { "Version ${it.versionName} available" } ?: "Update download", style = MaterialTheme.typography.titleMedium)
+                        OutlinedButton(onClick = viewModel.updates::showAvailable) { Text("View update") }
                     }
                 }
             }

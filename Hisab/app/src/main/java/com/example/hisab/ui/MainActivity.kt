@@ -151,6 +151,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun HisabNavHost(startDest: String, sessionViewModel: SessionViewModel = hiltViewModel(), privacyViewModel: PrivacyViewModel = hiltViewModel(),
     pushNavigation: com.example.hisab.features.notifications.PushNavigation? = null) {
+    val updateViewModel: com.example.hisab.features.settings.presentation.AppUpdateViewModel = hiltViewModel()
+    val updateState by updateViewModel.updates.state.collectAsStateWithLifecycle()
+    var permissionVisible by remember { mutableStateOf(false) }
     val navController = rememberNavController()
     val isAdmin by sessionViewModel.isAdmin.collectAsState()
     val requiresSignIn by sessionViewModel.requiresSignIn.collectAsState()
@@ -164,6 +167,12 @@ fun HisabNavHost(startDest: String, sessionViewModel: SessionViewModel = hiltVie
         val event = pending ?: return@LaunchedEffect
         if (requiresSignIn || actor != null && event.ownerId != actor) { pushNavigation?.consume(event); return@LaunchedEffect }
         if (actor != event.ownerId || privacyState.gate != PrivacyGate.Continue) return@LaunchedEffect
+        if (event.kind == "UPDATE") {
+            navController.navigate("settings") { launchSingleTop = true }
+            updateViewModel.updates.check(com.example.hisab.features.settings.presentation.UpdateTrigger.PUSH)
+            pushNavigation?.consume(event)
+            return@LaunchedEffect
+        }
         val target = when (event.kind) {
             "DEBT", "PAYMENT" -> "group_detail/${event.groupId}?entryId=${event.recordId}"
             "INVITATION" -> "notifications"
@@ -175,8 +184,16 @@ fun HisabNavHost(startDest: String, sessionViewModel: SessionViewModel = hiltVie
         pushNavigation?.consume(event)
     }
     if (route == "dashboard" && actor != null && privacyState.gate == PrivacyGate.Continue) {
-        com.example.hisab.features.notifications.PushPermissionPrompt()
+        com.example.hisab.features.notifications.PushPermissionPrompt(blocked = updateState.visible && !permissionVisible,
+            onVisibility = { permissionVisible = it })
     }
+
+    LaunchedEffect(Unit) {
+        updateViewModel.updates.check(com.example.hisab.features.settings.presentation.UpdateTrigger.AUTOMATIC)
+    }
+    com.example.hisab.features.settings.presentation.AppUpdateHost(
+        allowed = !permissionVisible && route in setOf("login", "dashboard", "settings", "about", "faq") &&
+            (actor == null || privacyState.gate == PrivacyGate.Continue), viewModel = updateViewModel)
 
     fun openLogin() {
         navController.navigate("login") {

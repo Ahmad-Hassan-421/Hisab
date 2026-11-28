@@ -19,6 +19,14 @@ class AppUpdateResponseTest {
     }
 
     @Test
+    fun validatesReleasePolicyAndStrictCalendarDates() {
+        assertNull(release.copy(releaseDate = "2026-02-30T00:00:00Z").validate(null))
+        assertNull(release.copy(minimumSupportedVersionCode = 13).validate(null))
+        assertNull(release.copy(sizeBytes = 536_870_913).validate(null))
+        assertTrue(checkNotNull(release.copy(required = true).validate(null)).isRequiredFor(11))
+    }
+
+    @Test
     fun refusesIncompleteMetadataOrPackagesFromADifferentLocation() {
         assertNull(release.copy(sha256 = null).validate(null))
         assertNull(release.copy(sizeBytes = -1).validate(null))
